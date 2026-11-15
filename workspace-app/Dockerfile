@@ -1,12 +1,14 @@
 # Runs a jar built beforehand on the host (./mvnw package). Build context: the repository root.
 # Layers are extracted so that dependencies, which change rarely, cache apart from application code.
+# Base images are pinned by the digest of their multi-platform index; Dependabot updates tag and digest
+# together.
 
-FROM eclipse-temurin:25-jre-alpine AS extract
+FROM eclipse-temurin:25-jre-alpine@sha256:e1898fd6a11fc965a994d8ace186fd3585aeb636cf8f05f47a723fcfee0b0918 AS extract
 WORKDIR /build
 COPY workspace-app/target/workspace-app-*.jar application.jar
 RUN java -Djarmode=tools -jar application.jar extract --layers --launcher --destination extracted
 
-FROM eclipse-temurin:25-jre-alpine
+FROM eclipse-temurin:25-jre-alpine@sha256:e1898fd6a11fc965a994d8ace186fd3585aeb636cf8f05f47a723fcfee0b0918
 RUN addgroup -S -g 10001 workspace && adduser -S -u 10001 -G workspace workspace
 WORKDIR /application
 COPY --from=extract /build/extracted/dependencies/ ./
