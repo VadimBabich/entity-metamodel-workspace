@@ -1,0 +1,9 @@
+apiVersion: 1
+
+providers:
+  - name: workspace
+    folder: Workspace
+    type: file
+    disableDeletion: true
+    options:
+      path: /etc/grafana/provisioning/dashboards/json

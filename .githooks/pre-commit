@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+#
+# Enable once per clone:  git config core.hooksPath .githooks
+#
+# A convenience, not the control: a clone without that setting has no hooks. The Guards workflow
+# re-runs both checks on every push.
+
+set -euo pipefail
+
+repository_root="$(git rev-parse --show-toplevel)"
+readonly repository_root
+
+"${repository_root}/.github/scripts/check-private-paths.sh" staged
+"${repository_root}/.github/scripts/check-emails.sh" staged

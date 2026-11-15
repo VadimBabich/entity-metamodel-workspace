@@ -1,0 +1,32 @@
+### Private working material: never committed. Guards and the commit gate enforce it too. ###
+/_doc/
+CLAUDE.local.md
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+
+### Build ###
+target/
+!.mvn/wrapper/maven-wrapper.jar
+
+### Local environment ###
+.env
+.env.*
+!.env.example
+
+### IDEs ###
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+.classpath
+.project
+.settings/
+.factorypath
+
+### Node (ui/, when it exists) ###
+node_modules/
+dist/
+
+### OS ###
+.DS_Store

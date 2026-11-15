@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+#
+# Enable once per clone:  git config core.hooksPath .githooks
+#
+# Refuses a push whose new commits add a private path, before any object reaches the remote. Guards
+# catches the same after a push that skipped this hook (git push --no-verify, or a clone without the
+# setting above), when the content is already published.
+
+set -euo pipefail
+
+readonly NULL_SHA='0000000000000000000000000000000000000000'
+
+repository_root="$(git rev-parse --show-toplevel)"
+readonly repository_root
+readonly CHECK="${repository_root}/.github/scripts/check-private-paths.sh"
+
+# $1 is the remote's name, or its URL when the push names no remote; --remotes=<url> then matches no
+# ref and a new branch is checked over its whole history, the safe direction.
+remote_name="$1"
+failures=0
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  if [ "${local_sha}" = "${NULL_SHA}" ]; then
+    continue
+  fi
+
+  if [ "${remote_sha}" = "${NULL_SHA}" ]; then
+    range_status=0
+    "${CHECK}" range "${local_sha}" --not "--remotes=${remote_name}" || range_status=$?
+  else
+    range_status=0
+    "${CHECK}" range "${remote_sha}..${local_sha}" || range_status=$?
+  fi
+
+  if [ "${range_status}" -ne 0 ]; then
+    printf 'ERROR %s (to %s) must not be pushed\n' "${local_ref}" "${remote_ref}" >&2
+    failures=$((failures + 1))
+  fi
+done
+
+if [ "${failures}" -gt 0 ]; then
+  exit 1
+fi

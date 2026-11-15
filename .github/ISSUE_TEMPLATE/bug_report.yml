@@ -1,0 +1,30 @@
+name: Bug report
+description: Something in the sample does not work as described.
+labels: [bug]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce
+      description: Commands, requests or a failing test.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Commit or tag
+      description: The commit of this repository you ran.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: JDK, Docker version, operating system.

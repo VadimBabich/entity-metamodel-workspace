@@ -1,0 +1,3 @@
+# The image is built from the packaged jar only.
+*
+!workspace-app/target/workspace-app-*.jar

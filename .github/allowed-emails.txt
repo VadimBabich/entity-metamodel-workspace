@@ -1,0 +1,8 @@
+# Email addresses permitted in commit metadata and in tracked files. One pattern per line; `*` matches
+# within the local part only. Adding a line is a decision: say why in the same commit.
+
+*@users.noreply.github.com
+noreply@github.com
+
+# The example users of the local Keycloak realm: a reserved documentation domain (RFC 2606).
+*@example.org

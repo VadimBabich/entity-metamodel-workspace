@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "attribution": {
+    "commit": "",
+    "pr": "",
+    "sessionUrl": false
+  },
+  "permissions": {
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./**/secrets/**)",
+      "Bash(git push --force)",
+      "Bash(git push --force *)",
+      "Bash(git push -f*)",
+      "Bash(git add -A*)",
+      "Bash(git add .)"
+    ],
+    "ask": [
+      "Bash(git push*)",
+      "Bash(gh repo *)",
+      "Bash(gh release *)"
+    ],
+    "allow": [
+      "Bash(./mvnw *)",
+      "Bash(docker compose -f deploy/compose/compose.yaml *)",
+      "Bash(deploy/compose/smoke-test.sh)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard-bash.sh",
+            "timeout": 10,
+            "onFailure": "block"
+          },
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/commit-gate.sh",
+            "if": "Bash(git commit*)",
+            "timeout": 60,
+            "onFailure": "block",
+            "statusMessage": "Checking the commit gate"
+          }
+        ]
+      }
+    ]
+  }
+}

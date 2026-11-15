@@ -1,0 +1,26 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # The application in the compose stack (profile "app").
+  - job_name: workspace
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["app:8080"]
+        labels:
+          source: compose
+
+  # The application started from an IDE or with ./mvnw spring-boot:run on the host.
+  - job_name: workspace-host
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["host.docker.internal:8080"]
+        labels:
+          source: host
+
+  # Keycloak exposes metrics on its management port.
+  - job_name: keycloak
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["keycloak:9000"]

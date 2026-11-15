@@ -1,0 +1,88 @@
+openapi: 3.1.0
+info:
+  title: Document workspace
+  version: 0.1.0
+  description: >
+    The contract of the reference application. Server interfaces are generated from this document;
+    the document, not the code, is the source of the API.
+  license:
+    name: Apache-2.0
+    identifier: Apache-2.0
+
+servers:
+  - url: http://localhost:8080
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: folders
+    description: Folders and their contents.
+
+paths:
+  /api/v1/folders/{folderId}/children:
+    get:
+      tags: [folders]
+      operationId: listFolderChildren
+      summary: List a folder's children, folders first, then by name.
+      parameters:
+        - name: folderId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        '200':
+          description: The first page of children.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NodePage'
+        '401':
+          description: No valid bearer token.
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    NodeKind:
+      type: string
+      enum: [FOLDER, FILE]
+
+    Node:
+      type: object
+      required: [id, kind, name]
+      properties:
+        id:
+          type: integer
+          format: int64
+        kind:
+          $ref: '#/components/schemas/NodeKind'
+        name:
+          type: string
+        sizeBytes:
+          type: integer
+          format: int64
+
+    NodePage:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Node'

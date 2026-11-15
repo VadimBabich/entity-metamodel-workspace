@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: A problem in the library itself
+    url: https://github.com/VadimBabich/entity-metamodel/issues
+    about: Issues with entity-metamodel belong in its own repository.
+  - name: Report a vulnerability privately
+    url: https://github.com/VadimBabich/entity-metamodel-workspace/security/advisories/new
+    about: Never open a public issue for a security problem.
