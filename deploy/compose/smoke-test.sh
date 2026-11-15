@@ -48,9 +48,9 @@ fi
 
 wait_for "the application" "${API_URL}/actuator/health/readiness"
 
-token="$(curl -fsS -X POST "${TOKEN_URL}" \
-  -d grant_type=password -d client_id=workspace-dev-cli -d username=alice -d password=alice \
-  | python3 -c 'import json, sys; print(json.load(sys.stdin)["access_token"])')"
+token_response="$(curl -fsS -X POST "${TOKEN_URL}" \
+  -d grant_type=password -d client_id=workspace-dev-cli -d username=alice -d password=alice)"
+token="$(printf '%s' "${token_response}" | python3 -c 'import json, sys; print(json.load(sys.stdin)["access_token"])')"
 [ -n "${token}" ] || fail "Keycloak issued no token"
 log "Keycloak issued a token for alice"
 
@@ -64,7 +64,8 @@ log "a call with alice's token is answered (200)"
 
 wait_for "Prometheus" "http://localhost:9090/-/ready"
 for attempt in $(seq 1 "${ATTEMPTS}"); do
-  health="$(curl -fsS 'http://localhost:9090/api/v1/targets?scrapePool=workspace' \
+  targets_response="$(curl -fsS 'http://localhost:9090/api/v1/targets?scrapePool=workspace')"
+  health="$(printf '%s' "${targets_response}" \
     | python3 -c 'import json, sys; t = json.load(sys.stdin)["data"]["activeTargets"]; print(t[0]["health"] if t else "none")')"
   if [ "${health}" = "up" ]; then
     log "Prometheus scrapes the application"
