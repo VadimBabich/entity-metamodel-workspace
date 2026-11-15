@@ -54,6 +54,10 @@ jobs:
       - name: Fail on email addresses not in the allowlist
         run: .github/scripts/check-emails.sh tree
 
+      # The secret scan reports none of the private keys a server-made Keycloak export carries.
+      - name: Fail on a realm export with keys, a literal secret or no basic scope
+        run: .github/scripts/check-realm-export.sh
+
   history:
     name: Linear history, no assistant attribution
     runs-on: ubuntu-latest
