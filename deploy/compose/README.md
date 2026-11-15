@@ -20,12 +20,37 @@ Prometheus scrapes the application. CI runs it on every push.
 
 ## Keycloak
 
-The realm `workspace` is imported at start-up from `keycloak/import/workspace-realm.json`:
+The realm `workspace` is imported at start-up from `keycloak/import/workspace-realm.json`. Its
+clients:
 
-- client scope `workspace-api` adds the audience `workspace-api`, which the application requires;
 - `workspace-ui`: public client, authorization code with PKCE, for the future UI;
 - `workspace-dev-cli`: password grant, for `curl` against the local stack only;
-- users `alice` and `bob` (passwords equal to the user name).
+- `workspace-sync`: a service account that reads users and organization memberships (`view-users`
+  and `view-organizations`, nothing that writes). Its secret is the variable `KEYCLOAK_SYNC_SECRET`,
+  with a development default in `compose.yaml`.
+
+A user's access token carries `sub`, `preferred_username`, `email`, the audience `workspace-api`,
+exactly one `organization` alias and, for an administrator, the realm role `company-admin`.
+
+| User | Organization | Organization group | Administrator |
+|---|---|---|---|
+| `alice` | `acme` | `managers` | yes |
+| `ivan` | `acme` | none | yes |
+| `carol` | `acme` | `listers` | |
+| `dave` | `acme` | `viewers` | |
+| `erin` | `acme` | `contributors` | |
+| `frank` | `acme` | `editors` | |
+| `heidi` | `acme` | none | |
+| `bob` | `globex` | `editors` | |
+
+Every password equals the user name, and every address is `<user>@example.org`.
+`check-identity.sh` asserts all of this against a running Keycloak.
+
+The export defines every client scope it uses, Keycloak's built-in ones included, because an export
+that defines any scope gets none of the built-ins. Those definitions are copied from Keycloak
+26.8.2's own export, so a Keycloak upgrade needs them compared with the new version's. Never commit
+an export made by the server: it carries the realm's private keys, which the secret scan does not
+report, and Guards refuses it.
 
 `KC_HOSTNAME` is `http://localhost:8180`, so tokens carry that issuer whether they were requested
 from a browser or from a container; the application container fetches keys over the compose network
@@ -43,7 +68,9 @@ docker volume rm workspace_keycloak-db-data
 docker compose -f deploy/compose/compose.yaml up -d --wait
 ```
 
-`down -v` also works, but removes every volume, the application's database included.
+`down -v` also works, but removes every volume, the application's database included. A stack started
+before a change to the realm file keeps the old realm, and `check-identity.sh` then reports a token
+without `sub` or an unknown user.
 
 ## Ports
 

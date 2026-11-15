@@ -35,7 +35,7 @@ deploy/compose/smoke-test.sh
 | Service | Address | Development credentials |
 |---|---|---|
 | Application | http://localhost:8080 | a bearer token from Keycloak |
-| Keycloak | http://localhost:8180 (realm `workspace`) | admin `admin`/`admin`; users `alice`/`alice`, `bob`/`bob` |
+| Keycloak | http://localhost:8180 (realm `workspace`) | admin `admin`/`admin`; eight demonstration users in two organizations, each with password = user name ([list](deploy/compose/README.md#keycloak)) |
 | PostgreSQL | localhost:15432 | `workspace`/`workspace` |
 | S3 (Versity Gateway) | http://localhost:7070 | `workspace`/`workspace-secret-key` |
 | Prometheus | http://localhost:9090 | — |
