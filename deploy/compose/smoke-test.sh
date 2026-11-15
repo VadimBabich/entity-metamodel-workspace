@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 #
-# End-to-end check of the local stack: Keycloak issues a token, the application accepts it and
-# answers from PostgreSQL, Prometheus scrapes the application. Run from the repository root after
+# End-to-end check of the local stack: Keycloak issues a token, the demonstration identities pass
+# check-identity.sh, the application accepts the token and answers from PostgreSQL, Prometheus
+# scrapes the application. Run from the repository root after
 # `./mvnw -B package -DskipTests`:
 #
 #   deploy/compose/smoke-test.sh
@@ -53,6 +54,8 @@ token_response="$(curl -fsS -X POST "${TOKEN_URL}" \
 token="$(printf '%s' "${token_response}" | python3 -c 'import json, sys; print(json.load(sys.stdin)["access_token"])')"
 [ -n "${token}" ] || fail "Keycloak issued no token"
 log "Keycloak issued a token for alice"
+
+"$(dirname "$0")/check-identity.sh" || fail "the demonstration identities are not as expected"
 
 status="$(curl -s -o /dev/null -w '%{http_code}' "${API_URL}/api/v1/folders/1/children")"
 [ "${status}" = "401" ] || fail "a call without a token answered ${status}, expected 401"
