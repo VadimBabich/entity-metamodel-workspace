@@ -131,7 +131,8 @@ History reaches `main` by **rebase merge**, so every commit lands on `main` exac
   it.
 - Author: `<id>+<user>@users.noreply.github.com`.
 - A rebased feature branch is pushed with `git push --force-with-lease`. Plain `--force` is never
-  used, and `main` is never force-pushed (the ruleset forbids it; the command guard refuses it).
+  used, and `main` is never force-pushed (the command guard refuses it; GitHub does not, as `main`
+  has no ruleset).
 - Enable the hooks once per clone: `git config core.hooksPath .githooks`. The Claude Code commit
   gate refuses to commit until it is set.
 

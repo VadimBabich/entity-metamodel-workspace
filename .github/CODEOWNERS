@@ -1,2 +1,2 @@
-# Makes a ruleset's "require review from code owners" meaningful. Handles only, never addresses.
+# Requests the maintainer's review on pull requests. Handles only, never addresses.
 * @VadimBabich
