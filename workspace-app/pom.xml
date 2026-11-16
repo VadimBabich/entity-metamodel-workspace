@@ -131,7 +131,51 @@
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>mockito-path</id>
+            <goals>
+              <goal>properties</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>analyze-dependencies</id>
+            <phase>none</phase>
+          </execution>
+        </executions>
+      </plugin>
+      <!-- The domain's classes run only in this module's tests, so their coverage is reported here. Complete only
+           in a full reactor build: with -pl the other modules are not in the reactor. -->
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>report-aggregate</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>report-aggregate</goal>
+            </goals>
+            <configuration>
+              <includeCurrentProject>true</includeCurrentProject>
+              <excludes>
+                <exclude>${jacoco.generated.exclude}</exclude>
+              </excludes>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-failsafe-plugin</artifactId>
+        <configuration>
+          <systemPropertyVariables>
+            <!-- The number of distinct integration-test configurations, each a Spring context with its own
+                 PostgreSQL. ContextBudgetIT fails above it; a commit that adds a configuration raises it. -->
+            <it.context-budget>1</it.context-budget>
+          </systemPropertyVariables>
+        </configuration>
         <executions>
           <execution>
             <goals>
@@ -143,4 +187,50 @@
       </plugin>
     </plugins>
   </build>
+
+  <profiles>
+    <!-- Mutation testing, outside verify: ./mvnw -Ppit verify, run weekly by the mutation workflow. No mutation
+         threshold until that workflow has reports to set one from. -->
+    <profile>
+      <id>pit</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.pitest</groupId>
+            <artifactId>pitest-maven</artifactId>
+            <executions>
+              <execution>
+                <id>mutation-coverage</id>
+                <phase>verify</phase>
+                <goals>
+                  <goal>mutationCoverage</goal>
+                </goals>
+              </execution>
+            </executions>
+            <configuration>
+              <targetClasses>
+                <param>io.github.vadimbabich.workspace.*</param>
+              </targetClasses>
+              <targetTests>
+                <param>io.github.vadimbabich.workspace.*</param>
+              </targetTests>
+              <!-- It counts the contexts of a whole Failsafe run and reads Failsafe's budget; PIT runs it without
+                   either. -->
+              <excludedTestClasses>
+                <param>io.github.vadimbabich.workspace.ContextBudgetIT</param>
+              </excludedTestClasses>
+              <threads>4</threads>
+              <jvmArgs>
+                <value>${mockito.agent}</value>
+              </jvmArgs>
+              <outputFormats>
+                <param>HTML</param>
+                <param>XML</param>
+              </outputFormats>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>

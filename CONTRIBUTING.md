@@ -11,7 +11,8 @@ change should make that demonstration clearer, more correct or more realistic.
    path, but only after it has been published.
 2. Change the contract first: `workspace-contract/src/main/openapi/workspace.yaml`, then the code.
 3. `./mvnw -B verify` passes (Docker must run).
-4. If you changed `deploy/compose/`: `deploy/compose/smoke-test.sh` passes.
+4. If you changed `deploy/compose/`: `deploy/compose/smoke-test.sh` passes, then
+   `deploy/compose/perf-smoke.sh` against the stack it started.
 5. If you changed a script or a workflow: `shellcheck -S style` and `actionlint` pass.
 
 ## Code style

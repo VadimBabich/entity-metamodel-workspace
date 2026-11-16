@@ -38,9 +38,13 @@ registry.
 
 ## Commands
 
-- Build and test: `./mvnw -B verify` (Docker must run: integration tests use Testcontainers).
+- Build and test: `./mvnw -B verify` (Docker must run: integration tests use Testcontainers). One test
+  class: add `-Dtest=…` or `-Dit.test=…` with `-Dsurefire.failIfNoSpecifiedTests=false` and
+  `-Dfailsafe.failIfNoSpecifiedTests=false`, because the modules without tests fail the filter.
+- Mutation testing: `./mvnw -B -Ppit verify` (report in `workspace-app/target/pit-reports`).
 - Stack: `docker compose -f deploy/compose/compose.yaml up -d --wait`; full end-to-end check:
-  `./mvnw -B package -DskipTests && deploy/compose/smoke-test.sh`.
+  `./mvnw -B package -DskipTests && deploy/compose/smoke-test.sh`, then the load smoke
+  `deploy/compose/perf-smoke.sh`.
 - Scripts: `shellcheck -S style` on any changed `.sh`; workflows: `actionlint`.
 
 Skills in `.claude/skills/`: `verify` (the full gate), `stack` (compose), `contract-first` (adding
@@ -62,8 +66,13 @@ Optimise for scanning, not compactness.
 - Names carry domain meaning (`visibleChildren`, `grantedFolder`), never `data`, `value`, `obj`,
   `result`. Never return `null`; prefer immutable collections.
 - Constructor injection, never field injection. **Java 25**, explicit types, no `var` in main code.
-- **Tests** are JUnit 5 + AssertJ; integration tests end in `IT` and run under Failsafe against
-  PostgreSQL in Testcontainers.
+- **Tests** are JUnit 6 (Jupiter) + AssertJ. Unit tests end in `Test` and load no Spring context.
+  Integration tests end in `IT`, carry `@WorkspaceIntegrationTest` and share one context and one
+  PostgreSQL container: no `@Container`, `@Testcontainers`, `Thread.sleep`, `@DirtiesContext`, or
+  `@MockitoBean` in an `IT` (ArchUnit enforces it). A test that needs another configuration raises
+  `it.context-budget` in `workspace-app/pom.xml` in the same commit, or `ContextBudgetIT` fails.
+  Coverage is reported, never gated. A module that gains its first test also declares Mockito and
+  the dependency plugin's `properties` goal: the parent's `argLine` names Mockito's jar.
 
 **Reactive code**: read `docs/reactive-code-style.md` before writing a reactive line. The costliest
 mistakes it prevents: blocking on a request path, choosing schedulers outside one blocking adapter,
