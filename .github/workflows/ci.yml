@@ -45,14 +45,23 @@ jobs:
       - name: Build and test
         run: ./mvnw -B -ntp -C verify
 
+      # After a failed build too: the summary shows which phase failed.
+      - name: Write the test summary
+        if: always()
+        run: .github/scripts/test-summary.sh >> "$GITHUB_STEP_SUMMARY"
+
+      # On every run, not only on failure, so a passing run's numbers can be compared with the next.
       - name: Upload test reports
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: test-reports
           path: |
             **/target/surefire-reports/**
             **/target/failsafe-reports/**
+            workspace-app/target/context-cache.txt
+            workspace-app/target/site/jacoco-aggregate/**
+            workspace-app/target/site/jacoco-merged/**
           retention-days: 7
           if-no-files-found: ignore
 
@@ -79,6 +88,9 @@ jobs:
       # Keycloak issues a token, the application accepts it, Prometheus scrapes it.
       - name: Start the stack and run the smoke test
         run: deploy/compose/smoke-test.sh
+
+      - name: Run the k6 smoke
+        run: deploy/compose/perf-smoke.sh
 
       - name: Show container logs
         if: failure()

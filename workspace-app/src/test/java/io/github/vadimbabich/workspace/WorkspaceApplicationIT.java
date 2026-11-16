@@ -6,29 +6,18 @@ import static org.springframework.security.test.web.reactive.server.SecurityMock
 import io.github.vadimbabich.workspace.contract.model.Node;
 import io.github.vadimbabich.workspace.contract.model.NodeKind;
 import io.github.vadimbabich.workspace.contract.model.NodePage;
+import io.github.vadimbabich.workspace.support.StatementLog;
+import io.github.vadimbabich.workspace.support.WorkspaceIntegrationTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.springframework.boot.webtestclient.autoconfigure.AutoConfigureWebTestClient;
 import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.test.web.reactive.server.WebTestClient;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
-// A mock web environment: Spring Security's mockJwt() binds to it, and no Keycloak is needed.
-@SpringBootTest
-@AutoConfigureWebTestClient
-@Testcontainers
+@WorkspaceIntegrationTest
 class WorkspaceApplicationIT {
-
-  @Container
-  @ServiceConnection
-  static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:18.7-alpine");
 
   @Autowired
   WebTestClient client;
@@ -62,6 +51,18 @@ class WorkspaceApplicationIT {
     assertThat(page.getItems()).extracting(Node::getName)
         .containsExactly("Invoices", "a-report.pdf", "b-notes.txt");
     assertThat(page.getItems().getFirst().getKind()).isEqualTo(NodeKind.FOLDER);
+  }
+
+  @Test
+  void aFolderListingRunsOneStatement() {
+    try (StatementLog statementLog = StatementLog.open()) {
+      client.mutateWith(mockJwt())
+          .get().uri("/api/v1/folders/1/children?limit=10")
+          .exchange()
+          .expectStatus().isOk();
+
+      assertThat(statementLog.statementsOn("node")).hasSize(1);
+    }
   }
 
   // Only the status for now: the response body becomes application/problem+json with the error handler.

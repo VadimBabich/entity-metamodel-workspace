@@ -16,7 +16,9 @@ docker compose -f deploy/compose/compose.yaml --profile observability --profile 
 ```
 
 `smoke-test.sh` starts everything and checks that a Keycloak token reaches the API and that
-Prometheus scrapes the application. CI runs it on every push.
+Prometheus scrapes the application. `perf-smoke.sh` then runs k6 against that stack, with the load
+and the failure threshold set in `perf/smoke.js`. It prints the 95th-percentile response time but
+never fails on it. CI runs both on every push.
 
 ## Keycloak
 
