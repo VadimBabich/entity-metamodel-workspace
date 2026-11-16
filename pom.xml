@@ -45,6 +45,7 @@
 
     <openapi-generator.version>7.27.0</openapi-generator.version>
     <archunit.version>1.5.1</archunit.version>
+    <scram.version>3.3</scram.version>
     <maven-enforcer-plugin.version>3.7.0</maven-enforcer-plugin.version>
     <jacoco.version>0.8.16</jacoco.version>
     <pitest.version>1.30.2</pitest.version>
@@ -71,6 +72,18 @@
         <groupId>io.github.vadimbabich.workspace</groupId>
         <artifactId>workspace-domain</artifactId>
         <version>${project.version}</version>
+      </dependency>
+      <!-- Overrides the 3.2 that r2dbc-postgresql brings: 3.3 fixes a channel-binding downgrade (CVE-2026-53712).
+           Remove once r2dbc-postgresql itself requires 3.3 or later. -->
+      <dependency>
+        <groupId>com.ongres.scram</groupId>
+        <artifactId>scram-client</artifactId>
+        <version>${scram.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.ongres.scram</groupId>
+        <artifactId>scram-common</artifactId>
+        <version>${scram.version}</version>
       </dependency>
       <dependency>
         <groupId>com.tngtech.archunit</groupId>
