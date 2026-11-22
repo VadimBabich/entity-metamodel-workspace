@@ -45,7 +45,7 @@
 
     <openapi-generator.version>7.27.0</openapi-generator.version>
     <archunit.version>1.5.1</archunit.version>
-    <scram.version>3.3</scram.version>
+    <scram.version>3.4</scram.version>
     <maven-enforcer-plugin.version>3.7.0</maven-enforcer-plugin.version>
     <jacoco.version>0.8.16</jacoco.version>
     <pitest.version>1.30.2</pitest.version>
