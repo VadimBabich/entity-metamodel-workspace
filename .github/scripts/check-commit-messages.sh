@@ -35,9 +35,13 @@ attribution_lines() {
   local matches
   local grep_status=0
 
-  without_agent_files="$(printf '%s\n' "${message_text}" | LC_ALL=C sed -E "s#${AGENT_FILE_PATTERN}##g")"
+  if ! without_agent_files="$(printf '%s\n' "${message_text}" | LC_ALL=C sed -E "s#${AGENT_FILE_PATTERN}##g")"; then
+    log_error "removing agent file names from the message failed (sed)"
+    return 1
+  fi
 
   matches="$(printf '%s\n' "${without_agent_files}" | LC_ALL=C grep -n -i -E "${ATTRIBUTION_PATTERN}")" || grep_status=$?
+
   if [ "${grep_status}" -gt 1 ]; then
     log_error "attribution pattern failed to run (grep exit ${grep_status})"
     return 1
@@ -54,12 +58,23 @@ check_message() {
   if ! offending="$(attribution_lines "${message_text}")"; then
     return 1
   fi
+
   if [ -n "${offending}" ]; then
     log_error "${label}: a commit message carries the change only, never an assistant's name or attribution"
-    printf '  %s\n' "${offending}" >&2
+    indented_to_stderr "${offending}"
     return 1
   fi
+
   return 0
+}
+
+indented_to_stderr() {
+  local listed_lines="$1"
+  local listed_line
+
+  while IFS= read -r listed_line; do
+    printf '  %s\n' "${listed_line}" >&2
+  done <<< "${listed_lines}"
 }
 
 check_file() {
@@ -76,6 +91,7 @@ check_file() {
     log_error "could not read the commit message in ${message_path}"
     return 1
   fi
+
   if [ -z "${message_text}" ]; then
     return 0
   fi
@@ -83,29 +99,65 @@ check_file() {
   if ! check_message "commit message" "${message_text}"; then
     return 1
   fi
+
   log_ok "commit message names no assistant"
+}
+
+require_variable() {
+  local variable_name="$1"
+  local purpose="$2"
+
+  if [ -z "${!variable_name:-}" ]; then
+    log_error "${variable_name} is required ${purpose}"
+    return 1
+  fi
+}
+
+is_known_commit() {
+  local commit_sha="$1"
+
+  if [ "${commit_sha}" = "${NULL_SHA}" ]; then
+    return 1
+  fi
+
+  git cat-file -e "${commit_sha}^{commit}" 2>/dev/null
 }
 
 # Prints the rev-list arguments selecting what this event adds to the repository.
 ci_range() {
   local event_name="${GITHUB_EVENT_NAME:-}"
+  local pushed_sha
+  local before_sha="${PUSH_BEFORE_SHA:-${NULL_SHA}}"
 
   if [ "${event_name}" = "pull_request" ]; then
-    printf '%s..%s\n' "${PR_BASE_SHA:?PR_BASE_SHA is required for a pull request}" "${PR_HEAD_SHA:?PR_HEAD_SHA is required for a pull request}"
+    if ! require_variable PR_BASE_SHA "for a pull request"; then
+      return 1
+    fi
+
+    if ! require_variable PR_HEAD_SHA "for a pull request"; then
+      return 1
+    fi
+
+    printf '%s..%s\n' "${PR_BASE_SHA}" "${PR_HEAD_SHA}"
     return 0
   fi
 
-  local pushed_sha="${GITHUB_SHA:?GITHUB_SHA is required}"
-  local before_sha="${PUSH_BEFORE_SHA:-${NULL_SHA}}"
+  if ! require_variable GITHUB_SHA "for a push"; then
+    return 1
+  fi
 
-  if [ "${before_sha}" != "${NULL_SHA}" ] && git cat-file -e "${before_sha}^{commit}" 2>/dev/null; then
+  pushed_sha="${GITHUB_SHA}"
+
+  if is_known_commit "${before_sha}"; then
     printf '%s..%s\n' "${before_sha}" "${pushed_sha}"
     return 0
   fi
+
   if git rev-parse -q --verify origin/main > /dev/null; then
     printf 'origin/main..%s\n' "${pushed_sha}"
     return 0
   fi
+
   # The first push to an empty repository: everything is new.
   printf '%s\n' "${pushed_sha}"
 }
@@ -115,16 +167,19 @@ check_ci() {
   local commits
   local merges
   local failures=0
+  local checked_commits=0
   local commit_sha
   local message_text
 
   if ! range="$(ci_range)"; then
     return 1
   fi
+
   if ! commits="$(git rev-list "${range}")"; then
     log_error "could not list the commits in ${range}"
     return 1
   fi
+
   if [ -z "${commits}" ]; then
     if [ "${GITHUB_EVENT_NAME:-}" = "pull_request" ]; then
       log_error "pull request range ${range} holds no commits"
@@ -140,7 +195,7 @@ check_ci() {
   fi
   if [ -n "${merges}" ]; then
     log_error "merge commits in ${range}; rebase onto main instead of merging it in:"
-    printf '%s\n' "${merges}" | sed 's/^/  /' >&2
+    indented_to_stderr "${merges}"
     failures=$((failures + 1))
   fi
 
@@ -149,6 +204,9 @@ check_ci() {
       log_error "could not read the message of ${commit_sha}"
       return 1
     fi
+
+    checked_commits=$((checked_commits + 1))
+
     if ! check_message "commit ${commit_sha}" "${message_text}"; then
       failures=$((failures + 1))
     fi
@@ -157,7 +215,8 @@ check_ci() {
   if [ "${failures}" -gt 0 ]; then
     return 1
   fi
-  log_ok "$(printf '%s\n' "${commits}" | wc -l | tr -d ' ') commit(s) in ${range}: no merge commit, no assistant attribution"
+
+  log_ok "${checked_commits} commit(s) in ${range}: no merge commit, no assistant attribution"
 }
 
 main() {
