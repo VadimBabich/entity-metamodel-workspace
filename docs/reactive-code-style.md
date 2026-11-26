@@ -15,7 +15,7 @@ named place.
 
 ## 1. Prohibitions
 
-Changing one of these needs a decision record in `docs/adr/`.
+Changing one of these means changing this document first.
 
 1. **Never block on a request path.** No `block()`, `blockFirst()`, `blockLast()`, `toIterable()`,
    `toStream()`, `Thread.sleep`, blocking I/O or JDBC. One blocking call on an event-loop thread
@@ -158,10 +158,11 @@ ever runs.
 ## 8. Queries
 
 - **Typed queries only.** `FluentSelect` over the generated `*__` metamodels, run by the
-  `MetamodelQueryExecutor` bean. No SQL strings in handlers or services (ArchUnit enforces it).
-- **`SqlExpr.raw` is the documented escape hatch**, used only where the typed API cannot express the
-  query, with a comment saying why, and its text never assembled from request input. Values are
-  always bound.
+  `MetamodelQueryExecutor` bean inside a repository's `*QueriesImpl` fragment. No derived
+  query methods, no `@Query`, no SQL strings in handlers or services (ArchUnit enforces it).
+- **`SqlExpr.raw` is the documented escape hatch**, used only in the `query` package where the typed
+  API cannot express the query, with a comment saying why, and its text never assembled from request
+  input. Values are always bound.
 - **Generated code is never edited**: neither the metamodels nor the OpenAPI interfaces. Change the
   entity or the contract and regenerate.
 
@@ -183,9 +184,11 @@ ever runs.
 
 Reviews miss these, so the build catches what it can.
 
-1. **ArchUnit** (`ArchitectureTest`): already enforced are no `DatabaseClient` in handler packages
-   and no `java.sql` on the request path. Rules for no `block*`/`subscribe`/`onErrorContinue` and no
-   `Schedulers` outside the blocking adapters are added as soon as the code they guard exists.
+1. **ArchUnit** (`ArchitectureTest`): already enforced are `DatabaseClient` only in `config`, no
+   `java.sql`, no `subscribe`, no `SecurityContextHolder`, no `@Transactional` method returning a
+   `Flux`, queries only in repository fragments, and `Schedulers` only in the blocking
+   adapters the rule names. Rules for no `block*`/`onErrorContinue` are added as soon as the code they
+   guard exists.
 2. **Review checklist for a diff touching a reactive chain:** is every fallback deferred? is a named
    publisher subscribed twice? is `flatMap` concurrency bounded? does the operator state the order
    needed? is cancellation handled in cleanup? is the error path tested?
