@@ -20,6 +20,7 @@ services:
     volumes:
       # PostgreSQL 18 images keep data under a versioned directory; mount the parent.
       - postgres-data:/var/lib/postgresql
+      - ./postgres/initdb:/docker-entrypoint-initdb.d:ro
     healthcheck:
       # Over TCP: the image's initialisation server listens on the socket only, so this passes only
       # once the final server is up.
