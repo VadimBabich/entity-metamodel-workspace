@@ -86,6 +86,7 @@
                      500 instead of Spring's built-in method validation answering 400. -->
                 <useSpringBuiltInValidation>true</useSpringBuiltInValidation>
                 <openApiNullable>false</openApiNullable>
+                <additionalModelTypeAnnotations>@com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)</additionalModelTypeAnnotations>
                 <documentationProvider>none</documentationProvider>
                 <annotationLibrary>none</annotationLibrary>
                 <dateLibrary>java8</dateLibrary>
