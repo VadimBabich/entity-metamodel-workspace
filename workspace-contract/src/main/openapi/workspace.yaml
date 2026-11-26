@@ -1,10 +1,14 @@
 openapi: 3.1.0
 info:
   title: Document workspace
-  version: 0.1.0
+  version: 0.2.0
+  x-api-id: 55c74d5c-1319-4efe-91fa-ecdd7d7159ba
   description: >
     The contract of the reference application. Server interfaces are generated from this document;
     the document, not the code, is the source of the API.
+  contact:
+    name: entity-metamodel-workspace
+    url: https://github.com/VadimBabich/entity-metamodel-workspace
   license:
     name: Apache-2.0
     identifier: Apache-2.0
@@ -25,22 +29,17 @@ paths:
       tags: [folders]
       operationId: listFolderChildren
       summary: List a folder's children, folders first, then by name.
+      description: >
+        Returns the first page of a folder's live children: folders before files, each group ordered
+        by name. Trashed items are not listed.
       parameters:
         - name: folderId
           in: path
           required: true
+          description: The folder whose children are listed.
           schema:
-            type: integer
-            format: int64
-        - name: limit
-          in: query
-          required: false
-          schema:
-            type: integer
-            format: int32
-            minimum: 1
-            maximum: 100
-            default: 50
+            $ref: '#/components/schemas/Identifier'
+        - $ref: '#/components/parameters/Limit'
       responses:
         '200':
           description: The first page of children.
@@ -48,8 +47,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/NodePage'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
         '401':
-          description: No valid bearer token.
+          $ref: '#/components/responses/Unauthenticated'
+        default:
+          $ref: '#/components/responses/UnexpectedError'
 
 components:
   securitySchemes:
@@ -58,7 +61,40 @@ components:
       scheme: bearer
       bearerFormat: JWT
 
+  parameters:
+    Limit:
+      name: limit
+      in: query
+      required: false
+      description: The largest number of items the page holds.
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        maximum: 100
+        default: 50
+
+  responses:
+    InvalidRequest:
+      description: >
+        invalid-request: a parameter is missing, of the wrong type, or outside its documented range.
+    Unauthenticated:
+      description: >
+        unauthenticated: the request carries no bearer token, or one that is expired, not signed by
+        the identity provider, or issued for another audience. The response carries a
+        WWW-Authenticate header.
+    UnexpectedError:
+      description: >
+        An error the request did not cause. The response names no detail of it; retrying later may
+        succeed.
+
   schemas:
+    Identifier:
+      type: integer
+      format: int64
+      minimum: 1
+      maximum: 9007199254740991
+
     NodeKind:
       type: string
       enum: [FOLDER, FILE]
@@ -68,8 +104,7 @@ components:
       required: [id, kind, name]
       properties:
         id:
-          type: integer
-          format: int64
+          $ref: '#/components/schemas/Identifier'
         kind:
           $ref: '#/components/schemas/NodeKind'
         name:
