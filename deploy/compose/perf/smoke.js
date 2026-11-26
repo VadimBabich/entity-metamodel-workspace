@@ -17,7 +17,7 @@ export const options = {
 };
 
 export default function () {
-  const response = http.get(`${baseUrl}/api/v1/folders/1/children`, {
+  const response = http.get(`${baseUrl}/api/v1/top-level-folders`, {
     headers: { Authorization: `Bearer ${token}` },
   });
 

@@ -8,6 +8,8 @@
 
 name: workspace
 
+x-keycloak-sync-secret: &keycloak-sync-secret ${KEYCLOAK_SYNC_SECRET:-workspace-sync-local-dev-secret}
+
 services:
   postgres:
     image: postgres:18.7-alpine
@@ -56,7 +58,7 @@ services:
       KC_DB_USERNAME: keycloak
       KC_DB_PASSWORD: keycloak
       # Resolves the realm file's ${KEYCLOAK_SYNC_SECRET}; left unset, Keycloak would take that text as the secret.
-      KEYCLOAK_SYNC_SECRET: ${KEYCLOAK_SYNC_SECRET:-workspace-sync-local-dev-secret}
+      KEYCLOAK_SYNC_SECRET: *keycloak-sync-secret
       # One issuer for browsers and for the application container alike.
       KC_HOSTNAME: http://localhost:8180
       KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
@@ -115,6 +117,21 @@ services:
     depends_on:
       - prometheus
 
+  seed-companies:
+    image: postgres:18.7-alpine
+    profiles: ["seed"]
+    command: ["psql", "-v", "ON_ERROR_STOP=1", "-f", "/seed/companies.sql"]
+    environment:
+      PGHOST: postgres
+      PGDATABASE: workspace
+      PGUSER: workspace_migrator
+      PGPASSWORD: workspace-migrator-local-development-password
+    volumes:
+      - ./seed:/seed:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   app:
     profiles: ["app"]
     build:
@@ -126,9 +143,19 @@ services:
       OIDC_ISSUER_URI: http://localhost:8180/realms/workspace
       # Keys are fetched over the compose network; the issuer is still checked against the claim.
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/workspace/protocol/openid-connect/certs
+      KEYCLOAK_TOKEN_URI: http://keycloak:8080/realms/workspace/protocol/openid-connect/token
+      KEYCLOAK_ADMIN_URI: http://keycloak:8080/admin/realms/workspace
+      KEYCLOAK_SYNC_SECRET: *keycloak-sync-secret
       LOG_FORMAT: ecs
+      MANAGEMENT_PORT: "9091"
     ports:
       - "127.0.0.1:8080:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:9091/actuator/health/readiness"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
     depends_on:
       postgres:
         condition: service_healthy
