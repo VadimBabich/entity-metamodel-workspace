@@ -4,6 +4,8 @@
   "sslRequired": "external",
   "registrationAllowed": false,
   "accessTokenLifespan": 300,
+  "revokeRefreshToken": true,
+  "refreshTokenMaxReuse": 0,
   "organizationsEnabled": true,
   "clientScopes": [
     {
@@ -450,7 +452,8 @@
       ],
       "attributes": {
         "pkce.code.challenge.method": "S256",
-        "post.logout.redirect.uris": "http://localhost:5173/*"
+        "post.logout.redirect.uris": "+",
+        "use.refresh.tokens": "true"
       },
       "defaultClientScopes": [
         "workspace-api",
