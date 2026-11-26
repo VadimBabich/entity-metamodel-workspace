@@ -40,6 +40,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.reactive.TransactionalOperator;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.reactive.result.method.annotation.ResponseEntityExceptionHandler;
 import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Schedulers;
 
@@ -199,6 +200,13 @@ class ArchitectureTest {
   static final ArchRule noCodeHandlesConstraintViolationsItself = noClasses()
       .should().dependOnClassesThat().areAssignableTo(ConstraintViolationException.class)
       .because("contract constraints are enforced by Spring's built-in method validation and answered by one handler");
+
+  @ArchTest
+  static final ArchRule oneHandlerAnswersEveryControllerError = classes()
+      .that().areAssignableTo(ResponseEntityExceptionHandler.class)
+      .and().doNotHaveFullyQualifiedName(ResponseEntityExceptionHandler.class.getName())
+      .should().haveFullyQualifiedName(WORKSPACE + ".web.ApiExceptionHandler")
+      .because("every error on the controller path is one problem format from one place");
 
   private static ArchCondition<JavaClass> declareExactlyOneIdField() {
     return new ArchCondition<>("declare exactly one @Id field") {
