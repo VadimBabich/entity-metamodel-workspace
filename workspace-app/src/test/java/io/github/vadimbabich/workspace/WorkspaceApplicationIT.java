@@ -6,6 +6,7 @@ import static org.springframework.security.test.web.reactive.server.SecurityMock
 import io.github.vadimbabich.workspace.contract.model.Node;
 import io.github.vadimbabich.workspace.contract.model.NodeKind;
 import io.github.vadimbabich.workspace.contract.model.NodePage;
+import io.github.vadimbabich.workspace.support.FixtureDatabase;
 import io.github.vadimbabich.workspace.support.StatementLog;
 import io.github.vadimbabich.workspace.support.WorkspaceIntegrationTest;
 import org.junit.jupiter.api.BeforeEach;
@@ -13,7 +14,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.test.web.reactive.server.WebTestClient;
 
 @WorkspaceIntegrationTest
@@ -23,19 +23,20 @@ class WorkspaceApplicationIT {
   WebTestClient client;
 
   @Autowired
-  DatabaseClient database;
+  FixtureDatabase fixtures;
 
   @BeforeEach
   void seed() {
-    database.sql("truncate node restart identity").then().block();
-    database.sql("insert into node (tenant_id, parent_id, kind_rank, name, created_by) values (1, null, 0, 'root', 'seed')")
-        .then().block();
-    database.sql("""
+    fixtures.deleteAllRows().block();
+    fixtures.run("""
+        insert into node (tenant_id, parent_id, kind_rank, name, created_by) values (1, null, 0, 'root', 'seed')
+        """);
+    fixtures.run("""
         insert into node (tenant_id, parent_id, kind_rank, name, size_bytes, created_by) values
           (1, 1, 1, 'b-notes.txt', 200, 'seed'),
           (1, 1, 0, 'Invoices', 0, 'seed'),
           (1, 1, 1, 'a-report.pdf', 100, 'seed')
-        """).then().block();
+        """);
   }
 
   @Test
