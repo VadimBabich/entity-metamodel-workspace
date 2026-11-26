@@ -74,7 +74,54 @@ docker compose -f deploy/compose/compose.yaml up -d --wait
 before a change to the realm file keeps the old realm, and `check-identity.sh` then reports a token
 without `sub` or an unknown user.
 
+## Database roles
+
+`postgres/initdb/01-roles.sql` creates two roles when the database volume is first initialised; the
+same file runs in the integration tests' container:
+
+| Role | Used by | Holds |
+|---|---|---|
+| `workspace_migrator` | Flyway | owns every table it migrates; `CREATE` on the database and the `public` schema |
+| `workspace_app` | the application | `USAGE` on `public` and what each migration grants it; owns nothing |
+
+Neither is a superuser. The image's `workspace` superuser runs the script and nothing else.
+`application.yaml` defaults to both roles with the passwords the script sets, so `java -jar` against
+this stack needs no database settings.
+
+The script runs only on an empty data directory. A volume created before it existed has neither role
+and the application fails at start-up. Remove that volume once, together with the `app` container,
+whose image still carries the jar built before the roles, and the `prometheus` container, which keeps
+the scrape configuration it loaded at start; then rebuild and start everything:
+
+```bash
+docker compose -f deploy/compose/compose.yaml --profile app --profile observability rm -sf postgres app prometheus
+docker volume rm workspace_postgres-data
+./mvnw -B package -DskipTests
+docker compose -f deploy/compose/compose.yaml --profile observability --profile app up -d --build --wait
+```
+
+`smoke-test.sh` then checks the stack end to end. Only the application database is lost; Keycloak's
+data is in its own volume.
+
+## Demonstration data
+
+A request is answered only for a user whose token names an organization the database knows as a
+company. Once the application has started (in compose or by `java -jar`), seed the two companies:
+
+```bash
+docker compose -f deploy/compose/compose.yaml --profile seed run --rm seed-companies
+```
+
+`seed/companies.sql` waits up to two minutes for the application's migrations, runs as the migration
+role, and can be run again without effect. `smoke-test.sh` runs it.
+
 ## Ports
 
 PostgreSQL is published on 15432 rather than 5432, so it does not collide with a local PostgreSQL;
 set `WORKSPACE_DB_PORT` to change it.
+
+The application serves its API on 8080 and its management endpoints (health, info, the Prometheus
+scrape) on 9091. Compose publishes 8080 only: Prometheus scrapes `app:9091` inside the compose
+network, the container's healthcheck reads its own port, and `localhost:8080/actuator/*` answers 404.
+An application started on the host with `java -jar` serves management on `localhost:9091`, which the
+`workspace-host` scrape job reads; set `MANAGEMENT_PORT` to change it.

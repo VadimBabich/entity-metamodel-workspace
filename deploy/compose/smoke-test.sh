@@ -47,7 +47,13 @@ fi
 
 "${COMPOSE[@]}" up -d --build --wait
 
-wait_for "the application" "${API_URL}/actuator/health/readiness"
+if ! "${COMPOSE[@]}" kill -s SIGHUP prometheus > /dev/null; then
+  fail "Prometheus could not be told to re-read its mounted configuration"
+fi
+log "Prometheus re-read its mounted configuration; a running container keeps the one it started with"
+
+"${COMPOSE[@]}" --profile seed run --rm seed-companies > /dev/null
+log "the demonstration companies are seeded"
 
 token_response="$(curl -fsS -X POST "${TOKEN_URL}" \
   -d grant_type=password -d client_id=workspace-dev-cli -d username=alice -d password=alice)"
@@ -57,11 +63,15 @@ log "Keycloak issued a token for alice"
 
 "$(dirname "$0")/check-identity.sh" || fail "the demonstration identities are not as expected"
 
-status="$(curl -s -o /dev/null -w '%{http_code}' "${API_URL}/api/v1/folders/1/children")"
+status="$(curl -s -o /dev/null -w '%{http_code}' "${API_URL}/actuator/prometheus")"
+[ "${status}" = "404" ] || fail "the application port answered ${status} to the scrape path, expected 404"
+log "the application port serves no management endpoint (404)"
+
+status="$(curl -s -o /dev/null -w '%{http_code}' "${API_URL}/api/v1/top-level-folders")"
 [ "${status}" = "401" ] || fail "a call without a token answered ${status}, expected 401"
 log "a call without a token is refused (401)"
 
-status="$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer ${token}" "${API_URL}/api/v1/folders/1/children")"
+status="$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer ${token}" "${API_URL}/api/v1/top-level-folders")"
 [ "${status}" = "200" ] || fail "a call with alice's token answered ${status}, expected 200"
 log "a call with alice's token is answered (200)"
 

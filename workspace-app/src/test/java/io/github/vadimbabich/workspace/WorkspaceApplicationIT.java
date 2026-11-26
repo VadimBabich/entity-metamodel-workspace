@@ -103,4 +103,9 @@ class WorkspaceApplicationIT {
     client.get().uri("/api/v1/folders/1/children").exchange().expectStatus().isUnauthorized();
   }
 
+  @Test
+  void theApplicationPortServesNoManagementEndpoint() {
+    client.get().uri("/actuator/prometheus").exchange().expectStatus().isNotFound();
+    client.get().uri("/actuator/health/readiness").exchange().expectStatus().isNotFound();
+  }
 }
