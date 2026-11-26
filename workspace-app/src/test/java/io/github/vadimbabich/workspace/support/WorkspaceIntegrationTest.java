@@ -19,6 +19,6 @@ import org.springframework.context.annotation.Import;
 @Documented
 @SpringBootTest(properties = "spring.security.oauth2.resourceserver.jwt.issuer-uri=" + TestTokens.ISSUER)
 @AutoConfigureWebTestClient
-@Import({TestDatabase.class, TestTokens.class})
+@Import({TestDatabase.class, TestTokens.class, FailingEndpoints.class})
 public @interface WorkspaceIntegrationTest {
 }

@@ -1,6 +1,8 @@
 spring:
   application:
     name: workspace
+  messages:
+    fallback-to-system-locale: false
   r2dbc:
     url: r2dbc:postgresql://${DB_HOST:localhost}:${DB_PORT:15432}/${DB_NAME:workspace}
     username: ${DB_APP_USER:workspace_app}
