@@ -25,6 +25,7 @@ import com.tngtech.archunit.lang.ArchRule;
 import com.tngtech.archunit.lang.ConditionEvents;
 import com.tngtech.archunit.lang.SimpleConditionEvent;
 import io.github.vadimbabich.entitymetamodel.runtime.SqlExpr;
+import io.github.vadimbabich.entitymetamodel.runtime.r2dbc.FluentSelect;
 import io.github.vadimbabich.entitymetamodel.runtime.r2dbc.MetamodelQueryExecutor;
 import jakarta.validation.ConstraintViolationException;
 import org.reactivestreams.Publisher;
@@ -72,6 +73,21 @@ class ArchitectureTest {
       .should().dependOnClassesThat(featurePackages())
       .because("configuration wires feature beans through Spring and library types, so features never form a cycle"
           + " with it");
+
+  @ArchTest
+  static final ArchRule typedQueriesAreBuiltInRepositoryFragments = noClasses()
+      .that().haveSimpleNameNotEndingWith("QueriesImpl")
+      .and().resideOutsideOfPackage(CONFIG)
+      .should().dependOnClassesThat().belongToAnyOf(FluentSelect.class, MetamodelQueryExecutor.class)
+      .because("a query has a domain name on a repository, and its typed statement lives in the repository's fragment");
+
+  @ArchTest
+  static final ArchRule onlyPersistenceCodeReferencesTheLibraryRuntime = noClasses()
+      .that().resideOutsideOfPackages(CONFIG, QUERY, DOMAIN)
+      .and().haveSimpleNameNotEndingWith("QueriesImpl")
+      .and().haveSimpleNameNotEndingWith("UpdatesImpl")
+      .should().dependOnClassesThat().resideInAPackage(LIBRARY_RUNTIME)
+      .because("the library is a persistence detail, reached through repository fragments and access conditions");
 
   @ArchTest
   static final ArchRule targetedWritesLiveInRepositoryFragments = noClasses()

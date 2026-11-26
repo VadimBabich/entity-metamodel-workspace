@@ -42,7 +42,9 @@ class ContractTest {
       operations.add(operation.method() + " " + operation.path());
     }
 
-    assertThat(operations).containsExactly("get /api/v1/folders/{folderId}/children");
+    assertThat(operations).containsExactlyInAnyOrder(
+        "get /api/v1/top-level-folders",
+        "get /api/v1/folders/{folderId}/children");
   }
 
   @Test

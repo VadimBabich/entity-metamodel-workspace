@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Document workspace
-  version: 0.3.0
+  version: 0.4.0
   x-api-id: 55c74d5c-1319-4efe-91fa-ecdd7d7159ba
   description: >
     The contract of the reference application. Server interfaces are generated from this document;
@@ -24,6 +24,32 @@ tags:
     description: Folders and their contents.
 
 paths:
+  /api/v1/top-level-folders:
+    get:
+      tags: [folders]
+      operationId: listTopLevelFolders
+      summary: List the top-level folders the caller may see, by name.
+      description: >
+        Returns the first page of the caller's company's live top-level folders on which the caller holds
+        a grant, ordered by name. Each item names what the caller may do with it.
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: The first page of top-level folders.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NodePage'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '503':
+          $ref: '#/components/responses/IdentityProviderUnavailable'
+        default:
+          $ref: '#/components/responses/UnexpectedError'
+
   /api/v1/folders/{folderId}/children:
     get:
       tags: [folders]
@@ -31,7 +57,8 @@ paths:
       summary: List a folder's children, folders first, then by name.
       description: >
         Returns the first page of a folder's live children: folders before files, each group ordered
-        by name. Trashed items are not listed.
+        by name. Trashed items are not listed. The folder must be one the caller may list; each item names
+        what the caller may do with it.
       parameters:
         - name: folderId
           in: path
@@ -51,6 +78,8 @@ paths:
           $ref: '#/components/responses/InvalidRequest'
         '401':
           $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/ItemNotFound'
         '503':
           $ref: '#/components/responses/IdentityProviderUnavailable'
         default:
@@ -85,6 +114,10 @@ components:
         unauthenticated: the request carries no bearer token, or one that is expired, not signed by
         the identity provider, or issued for another audience. The response carries a
         WWW-Authenticate header.
+    ItemNotFound:
+      description: >
+        item-not-found: no item with this id exists in the caller's company, it is trashed, it is not a
+        folder, or the caller may not list it. The four cases answer alike.
     IdentityProviderUnavailable:
       description: >
         identity-provider-unavailable: the keys that verify the bearer token cannot be obtained from
@@ -106,9 +139,20 @@ components:
       type: string
       enum: [FOLDER, FILE]
 
+    Capabilities:
+      type: object
+      required: [list, read]
+      properties:
+        list:
+          type: boolean
+          description: The caller may list this folder's children. Always false for a file.
+        read:
+          type: boolean
+          description: The caller may read this item.
+
     Node:
       type: object
-      required: [id, kind, name]
+      required: [id, kind, name, createdAt, capabilities]
       properties:
         id:
           $ref: '#/components/schemas/Identifier'
@@ -116,9 +160,16 @@ components:
           $ref: '#/components/schemas/NodeKind'
         name:
           type: string
+        parentId:
+          $ref: '#/components/schemas/Identifier'
         sizeBytes:
           type: integer
           format: int64
+        createdAt:
+          type: string
+          format: date-time
+        capabilities:
+          $ref: '#/components/schemas/Capabilities'
 
     NodePage:
       type: object
