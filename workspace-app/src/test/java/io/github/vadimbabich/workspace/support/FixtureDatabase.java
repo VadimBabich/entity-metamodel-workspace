@@ -44,7 +44,7 @@ public final class FixtureDatabase {
 
   public Mono<Void> deleteAllRows() {
     return migrationRoleClient.sql("""
-            truncate node restart identity
+            truncate acl.access_grant, group_membership, user_group, app_user, node, company restart identity
             """)
         .then();
   }

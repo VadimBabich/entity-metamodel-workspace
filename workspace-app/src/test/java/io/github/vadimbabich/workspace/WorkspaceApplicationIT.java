@@ -28,11 +28,12 @@ class WorkspaceApplicationIT {
   @BeforeEach
   void seed() {
     fixtures.deleteAllRows().block();
+    fixtures.run("insert into company (alias, name) values ('acme', 'Acme')");
     fixtures.run("""
-        insert into node (tenant_id, parent_id, kind_rank, name, created_by) values (1, null, 0, 'root', 'seed')
+        insert into node (company_id, parent_id, kind_rank, name, created_by) values (1, null, 0, 'root', 'seed')
         """);
     fixtures.run("""
-        insert into node (tenant_id, parent_id, kind_rank, name, size_bytes, created_by) values
+        insert into node (company_id, parent_id, kind_rank, name, size_bytes, created_by) values
           (1, 1, 1, 'b-notes.txt', 200, 'seed'),
           (1, 1, 0, 'Invoices', 0, 'seed'),
           (1, 1, 1, 'a-report.pdf', 100, 'seed')

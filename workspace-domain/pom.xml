@@ -27,6 +27,10 @@
       <groupId>io.github.vadimbabich</groupId>
       <artifactId>entity-metamodel-runtime</artifactId>
     </dependency>
+    <dependency>
+      <groupId>org.jspecify</groupId>
+      <artifactId>jspecify</artifactId>
+    </dependency>
   </dependencies>
 
   <build>
@@ -39,6 +43,9 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
         <configuration>
+          <compilerArgs combine.children="append">
+            <arg>-Aentitymetamodel.requireColumnAnnotation=true</arg>
+          </compilerArgs>
           <annotationProcessorPaths>
             <path>
               <groupId>io.github.vadimbabich</groupId>
