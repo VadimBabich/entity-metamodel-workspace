@@ -77,6 +77,27 @@ jobs:
           PUSH_BEFORE_SHA: ${{ github.event.before }}
         run: .github/scripts/check-commit-messages.sh ci
 
+  changes:
+    name: Applied migrations unchanged, API version raised
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      PUSH_BEFORE_SHA: ${{ github.event.before }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Fail on an edited, renamed or deleted applied migration
+        run: .github/scripts/check-contract-and-migrations.sh migrations
+
+      - name: Fail on a contract change that does not raise info.version
+        run: .github/scripts/check-contract-and-migrations.sh api-version
+
   workflows:
     name: Workflow and script lint
     runs-on: ubuntu-latest
