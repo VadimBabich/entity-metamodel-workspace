@@ -1,0 +1,10 @@
+{
+  "properties": [
+    {
+      "name": "workspace.mirror.group-pass-interval",
+      "type": "java.time.Duration",
+      "description": "The delay between the end of one group pass and the start of the next.",
+      "defaultValue": "60s"
+    }
+  ]
+}
