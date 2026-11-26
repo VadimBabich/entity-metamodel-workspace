@@ -161,6 +161,13 @@ class ArchitectureTest {
       .because("the processor generates the metamodels of the domain module's entities");
 
   @ArchTest
+  static final ArchRule entityFieldsAreFinal = fields()
+      .that().areDeclaredInClassesThat().areAnnotatedWith(Table.class)
+      .and().areNotStatic()
+      .should().beFinal()
+      .because("an entity is a value; a changed entity is a new instance");
+
+  @ArchTest
   static final ArchRule entityFieldsNameTheirColumn = fields()
       .that().areDeclaredInClassesThat().areAnnotatedWith(Table.class)
       .and().areNotStatic()

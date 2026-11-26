@@ -46,7 +46,7 @@ class FoldersController implements FoldersApi {
   private static io.github.vadimbabich.workspace.contract.model.Node toContract(Node node) {
     NodeKind kind = node.isFolder() ? NodeKind.FOLDER : NodeKind.FILE;
 
-    return new io.github.vadimbabich.workspace.contract.model.Node(node.getId(), kind, node.getName())
-        .sizeBytes(node.getSizeBytes());
+    return new io.github.vadimbabich.workspace.contract.model.Node(node.id(), kind, node.name())
+        .sizeBytes(node.sizeBytes());
   }
 }

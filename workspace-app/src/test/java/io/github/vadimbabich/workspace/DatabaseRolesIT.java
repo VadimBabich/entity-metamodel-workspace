@@ -118,7 +118,30 @@ class DatabaseRolesIT {
         """.formatted(APPLICATION_ROLE));
 
     StepVerifier.create(tablePrivileges)
-        .assertNext(privileges -> assertThat(privileges).containsExactly("public.node SELECT"))
+        .assertNext(privileges -> assertThat(privileges).containsExactly(
+            "acl.access_grant SELECT",
+            "public.app_user INSERT",
+            "public.app_user SELECT",
+            "public.app_user UPDATE",
+            "public.company SELECT",
+            "public.group_membership DELETE",
+            "public.group_membership INSERT",
+            "public.group_membership SELECT",
+            "public.node SELECT",
+            "public.user_group INSERT",
+            "public.user_group SELECT",
+            "public.user_group UPDATE"))
+        .verifyComplete();
+  }
+
+  @Test
+  void theApplicationRoleMayUseButNotCreateInTheAclSchema() {
+    Mono<Boolean> usesWithoutCreating = flagOf("""
+        select has_schema_privilege('%1$s', 'acl', 'USAGE') and not has_schema_privilege('%1$s', 'acl', 'CREATE')
+        """.formatted(APPLICATION_ROLE));
+
+    StepVerifier.create(usesWithoutCreating)
+        .expectNext(true)
         .verifyComplete();
   }
 
