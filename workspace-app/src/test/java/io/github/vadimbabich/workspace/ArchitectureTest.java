@@ -80,6 +80,13 @@ class ArchitectureTest {
       .because("a write that is not a whole-row save is a named repository method, with its property names typed");
 
   @ArchTest
+  static final ArchRule repositoriesDeclareNoQueryMethods = classes()
+      .that().areInterfaces()
+      .and().areAssignableTo(Repository.class)
+      .should(declareNoMethods())
+      .because("a derived query is a method name resolved at start-up, not a typed query");
+
+  @ArchTest
   static final ArchRule noStringQueries = noMethods()
       .should().beAnnotatedWith(Query.class)
       .because("a query string escapes the metamodel");

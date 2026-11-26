@@ -21,6 +21,20 @@ spring:
           issuer-uri: ${OIDC_ISSUER_URI:http://localhost:8180/realms/workspace}
           jwk-set-uri: ${spring.security.oauth2.resourceserver.jwt.issuer-uri}/protocol/openid-connect/certs
           audiences: workspace-api
+      client:
+        registration:
+          keycloak-admin:
+            provider: keycloak
+            client-id: workspace-sync
+            client-secret: ${KEYCLOAK_SYNC_SECRET:workspace-sync-local-dev-secret}
+            authorization-grant-type: client_credentials
+        provider:
+          keycloak:
+            token-uri: ${KEYCLOAK_TOKEN_URI:${spring.security.oauth2.resourceserver.jwt.issuer-uri}/protocol/openid-connect/token}
+
+workspace:
+  mirror:
+    admin-uri: ${KEYCLOAK_ADMIN_URI:http://localhost:8180/admin/realms/workspace}
 
 management:
   endpoints:
