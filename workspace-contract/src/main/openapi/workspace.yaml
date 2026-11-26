@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Document workspace
-  version: 0.2.0
+  version: 0.3.0
   x-api-id: 55c74d5c-1319-4efe-91fa-ecdd7d7159ba
   description: >
     The contract of the reference application. Server interfaces are generated from this document;
@@ -51,6 +51,8 @@ paths:
           $ref: '#/components/responses/InvalidRequest'
         '401':
           $ref: '#/components/responses/Unauthenticated'
+        '503':
+          $ref: '#/components/responses/IdentityProviderUnavailable'
         default:
           $ref: '#/components/responses/UnexpectedError'
 
@@ -83,6 +85,11 @@ components:
         unauthenticated: the request carries no bearer token, or one that is expired, not signed by
         the identity provider, or issued for another audience. The response carries a
         WWW-Authenticate header.
+    IdentityProviderUnavailable:
+      description: >
+        identity-provider-unavailable: the keys that verify the bearer token cannot be obtained from
+        the identity provider now. The response carries a Retry-After header; the same request may
+        succeed after it.
     UnexpectedError:
       description: >
         An error the request did not cause. The response names no detail of it; retrying later may
