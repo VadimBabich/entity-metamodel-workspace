@@ -1,9 +1,15 @@
 package io.github.vadimbabich.workspace.support;
 
+import io.github.vadimbabich.workspace.identity.Caller;
+import java.security.Principal;
+import java.util.Map;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.ReactiveSecurityContextHolder;
+import org.springframework.security.core.context.SecurityContext;
 import org.springframework.web.ErrorResponseException;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -22,6 +28,8 @@ public class FailingEndpoints {
   public static final String FILTER_FAILURE = "/test/failures/in-filter";
   public static final String FILTER_UNAVAILABLE = "/test/failures/in-filter-unavailable";
   public static final String RETRY_AFTER_SECONDS = "10";
+  public static final String CURRENT_CALLER = "/test/caller";
+  public static final String CURRENT_AUTHENTICATION = "/test/authentication";
 
   @Bean
   WebFilter failingFilter() {
@@ -59,6 +67,24 @@ public class FailingEndpoints {
           .map(Failures::increment)
           .flatMap(Failures::failOn)
           .map(String::valueOf);
+    }
+
+    @GetMapping(CURRENT_CALLER)
+    Mono<Caller> currentCaller() {
+      return Caller.current();
+    }
+
+    @GetMapping(CURRENT_AUTHENTICATION)
+    Mono<Map<String, Object>> currentAuthentication(ServerWebExchange exchange) {
+      Mono<Object> securityContextPrincipal = ReactiveSecurityContextHolder.getContext()
+          .mapNotNull(SecurityContext::getAuthentication)
+          .mapNotNull(Authentication::getPrincipal);
+
+      return securityContextPrincipal.zipWith(exchange.getPrincipal(), Failures::describe);
+    }
+
+    private static Map<String, Object> describe(Object securityContextPrincipal, Principal exchangePrincipal) {
+      return Map.of("principal", securityContextPrincipal, "exchangePrincipalName", exchangePrincipal.getName());
     }
 
     @GetMapping(LIBRARY_ARGUMENT_FAILURE)

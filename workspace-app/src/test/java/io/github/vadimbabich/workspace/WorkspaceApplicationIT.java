@@ -1,13 +1,13 @@
 package io.github.vadimbabich.workspace;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.mockJwt;
 
 import io.github.vadimbabich.workspace.contract.model.Node;
 import io.github.vadimbabich.workspace.contract.model.NodeKind;
 import io.github.vadimbabich.workspace.contract.model.NodePage;
 import io.github.vadimbabich.workspace.support.FixtureDatabase;
 import io.github.vadimbabich.workspace.support.StatementLog;
+import io.github.vadimbabich.workspace.support.TestCallers;
 import io.github.vadimbabich.workspace.support.WorkspaceIntegrationTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,7 +42,7 @@ class WorkspaceApplicationIT {
 
   @Test
   void aFolderListsFoldersFirstThenFilesByName() {
-    NodePage page = client.mutateWith(mockJwt())
+    NodePage page = client.mutateWith(TestCallers.acmeMember())
         .get().uri("/api/v1/folders/1/children?limit=10")
         .exchange()
         .expectStatus().isOk()
@@ -58,7 +58,7 @@ class WorkspaceApplicationIT {
   @Test
   void aFolderListingRunsOneStatement() {
     try (StatementLog statementLog = StatementLog.open()) {
-      client.mutateWith(mockJwt())
+      client.mutateWith(TestCallers.acmeMember())
           .get().uri("/api/v1/folders/1/children?limit=10")
           .exchange()
           .expectStatus().isOk();
@@ -71,7 +71,7 @@ class WorkspaceApplicationIT {
   @ParameterizedTest
   @ValueSource(ints = {-5, 1000})
   void aLimitOutsideTheContractIsABadRequest(int limit) {
-    client.mutateWith(mockJwt())
+    client.mutateWith(TestCallers.acmeMember())
         .get().uri("/api/v1/folders/1/children?limit=" + limit)
         .exchange()
         .expectStatus().isBadRequest();
