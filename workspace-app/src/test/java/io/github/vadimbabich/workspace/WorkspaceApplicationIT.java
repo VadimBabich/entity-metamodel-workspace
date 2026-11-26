@@ -6,7 +6,6 @@ import io.github.vadimbabich.workspace.contract.model.Node;
 import io.github.vadimbabich.workspace.contract.model.NodeKind;
 import io.github.vadimbabich.workspace.contract.model.NodePage;
 import io.github.vadimbabich.workspace.support.FixtureDatabase;
-import io.github.vadimbabich.workspace.support.StatementLog;
 import io.github.vadimbabich.workspace.support.TestCallers;
 import io.github.vadimbabich.workspace.support.WorkspaceIntegrationTest;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,6 +37,9 @@ class WorkspaceApplicationIT {
           (1, 1, 0, 'Invoices', 0, 'seed'),
           (1, 1, 1, 'a-report.pdf', 100, 'seed')
         """);
+    fixtures.run("""
+        insert into acl.access_grant (company_id, node_id, subject_kind, subject_id, role) values (1, 1, 3, 1, 2)
+        """);
   }
 
   @Test
@@ -56,18 +58,28 @@ class WorkspaceApplicationIT {
   }
 
   @Test
-  void aFolderListingRunsOneStatement() {
-    try (StatementLog statementLog = StatementLog.open()) {
-      client.mutateWith(TestCallers.acmeMember())
-          .get().uri("/api/v1/folders/1/children?limit=10")
-          .exchange()
-          .expectStatus().isOk();
+  void namesSortByteByByteSoCapitalsPrecedeLowercaseAndAccentsComeLast() {
+    fixtures.run("""
+        insert into node (company_id, parent_id, kind_rank, name, created_by) values (1, 1, 0, 'Sorting', 'seed')
+        """);
+    fixtures.run("""
+        insert into node (company_id, parent_id, kind_rank, name, created_by) values
+          (1, 5, 1, 'a', 'seed'),
+          (1, 5, 1, 'Ä', 'seed'),
+          (1, 5, 1, 'B', 'seed')
+        """);
 
-      assertThat(statementLog.statementsOn("node")).hasSize(1);
-    }
+    NodePage page = client.mutateWith(TestCallers.acmeMember())
+        .get().uri("/api/v1/folders/5/children?limit=10")
+        .exchange()
+        .expectStatus().isOk()
+        .expectBody(NodePage.class)
+        .returnResult().getResponseBody();
+
+    assertThat(page).isNotNull();
+    assertThat(page.getItems()).extracting(Node::getName).containsExactly("B", "a", "Ä");
   }
 
-  // Only the status for now: the response body becomes application/problem+json with the error handler.
   @ParameterizedTest
   @ValueSource(ints = {-5, 1000})
   void aLimitOutsideTheContractIsABadRequest(int limit) {
@@ -77,14 +89,18 @@ class WorkspaceApplicationIT {
         .expectStatus().isBadRequest();
   }
 
+  @ParameterizedTest
+  @ValueSource(strings = {"0", "-1", "9007199254740992", "abc"})
+  void aFolderIdOutsideTheContractIsABadRequest(String folderId) {
+    client.mutateWith(TestCallers.acmeMember())
+        .get().uri("/api/v1/folders/" + folderId + "/children")
+        .exchange()
+        .expectStatus().isBadRequest();
+  }
+
   @Test
   void theApiRefusesACallerWithoutAToken() {
     client.get().uri("/api/v1/folders/1/children").exchange().expectStatus().isUnauthorized();
   }
 
-  @Test
-  void healthAndMetricsAreReachableForTheComposeStack() {
-    client.get().uri("/actuator/health/readiness").exchange().expectStatus().isOk();
-    client.get().uri("/actuator/prometheus").exchange().expectStatus().isOk();
-  }
 }

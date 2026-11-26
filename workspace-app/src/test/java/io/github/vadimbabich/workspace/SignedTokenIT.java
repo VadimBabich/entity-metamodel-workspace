@@ -23,7 +23,7 @@ import org.springframework.test.web.reactive.server.WebTestClient;
 @WorkspaceIntegrationTest
 class SignedTokenIT {
 
-  private static final String FOLDER_CHILDREN = "/api/v1/folders/1/children";
+  private static final String TOP_LEVEL_FOLDERS = "/api/v1/top-level-folders";
   private static final String SUBJECT = "6f1c2b4e-0000-4000-8000-00000000a11c";
 
   @Autowired
@@ -82,7 +82,7 @@ class SignedTokenIT {
 
   private WebTestClient.ResponseSpec callWith(String token) {
     return client.get()
-        .uri(FOLDER_CHILDREN)
+        .uri(TOP_LEVEL_FOLDERS)
         .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
         .exchange();
   }

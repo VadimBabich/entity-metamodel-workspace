@@ -27,6 +27,8 @@ class QueryConfiguration {
 
     R2dbcDialect dialect = DialectResolver.getDialect(connectionFactory);
 
-    return new MetamodelQueryExecutor(databaseClient, new QueryRenderer(mappingContext, dialect), converter);
+    QueryRenderer renderer = new QueryRenderer(mappingContext, dialect);
+
+    return new MetamodelQueryExecutor(databaseClient, renderer, converter);
   }
 }
