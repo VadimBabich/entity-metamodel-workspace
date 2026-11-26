@@ -6,22 +6,37 @@ import static io.github.vadimbabich.workspace.support.TestTokens.newRsaKeyPair;
 import static io.github.vadimbabich.workspace.support.TestTokens.signedToken;
 import static io.github.vadimbabich.workspace.support.TestTokens.trustedSigningKey;
 
+import io.github.vadimbabich.workspace.support.FixtureDatabase;
+import io.github.vadimbabich.workspace.support.ProblemTypes;
+import io.github.vadimbabich.workspace.support.TestTokens;
 import io.github.vadimbabich.workspace.support.WorkspaceIntegrationTest;
 import java.security.PrivateKey;
 import java.time.Instant;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.reactive.server.WebTestClient;
 
 @WorkspaceIntegrationTest
 class SignedTokenIT {
 
-  private static final String CHILDREN_OF_FOLDER = "/api/v1/folders/1/children";
+  private static final String FOLDER_CHILDREN = "/api/v1/folders/1/children";
   private static final String SUBJECT = "6f1c2b4e-0000-4000-8000-00000000a11c";
 
   @Autowired
   WebTestClient client;
+
+  @Autowired
+  FixtureDatabase fixtures;
+
+  @BeforeEach
+  void seedTheTokensCompany() {
+    fixtures.deleteAllRows().block();
+    fixtures.run("insert into company (alias, name) values ('acme', 'Acme')");
+  }
 
   @Test
   void aTokenSignedByTheTrustedKeyIsAccepted() {
@@ -67,8 +82,21 @@ class SignedTokenIT {
 
   private WebTestClient.ResponseSpec callWith(String token) {
     return client.get()
-        .uri(CHILDREN_OF_FOLDER)
+        .uri(FOLDER_CHILDREN)
         .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
         .exchange();
+  }
+
+  @Test
+  void aTokenWhoseSigningKeysCannotBeObtainedIsAnsweredLaterNotRefused() {
+    String token = TestTokens.signedTokenNamingAnUnavailableKey(SUBJECT);
+
+    callWith(token)
+        .expectStatus().isEqualTo(HttpStatus.SERVICE_UNAVAILABLE)
+        .expectHeader().valueEquals(HttpHeaders.RETRY_AFTER, "10")
+        .expectHeader().contentType(MediaType.APPLICATION_PROBLEM_JSON)
+        .expectBody()
+        .jsonPath("$.type").isEqualTo(ProblemTypes.BASE + "identity-provider-unavailable")
+        .jsonPath("$.title").isEqualTo("Identity provider unavailable");
   }
 }
