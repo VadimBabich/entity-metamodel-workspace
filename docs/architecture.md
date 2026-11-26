@@ -27,10 +27,8 @@ workspace-contract  →  workspace-app  ←  workspace-domain
 
 `workspace-domain` depends on nothing web; `workspace-contract` holds nothing hand-written.
 
-## Decisions
-
-Architecture decisions are recorded in [`docs/adr/`](adr/). The first ones to write, once made:
+## Open decisions
 
 - the storage model for file versions (write-once object keys on an unversioned bucket);
 - the S3-compatible store used for local development and tests;
-- the browser UI and how it authenticates (see [`ui/README.md`](../ui/README.md)).
+- the browser UI and how it authenticates.

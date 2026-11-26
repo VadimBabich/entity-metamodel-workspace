@@ -41,7 +41,7 @@ If nothing moved, the documents are already correct. Say so and stop.
 ## 3. The documents to sweep together
 
 `README.md` (front door), `docs/architecture.md`, `deploy/compose/README.md` (the stack),
-`ui/README.md`, `SECURITY.md` and `CONTRIBUTING.md` where the change touches them. After the sweep,
+`SECURITY.md` and `CONTRIBUTING.md` where the change touches them. After the sweep,
 versions, ports, status and stated limits read the same in all of them.
 
 ## 4. Standard
