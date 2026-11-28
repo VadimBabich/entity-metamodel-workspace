@@ -85,7 +85,6 @@ jobs:
       - name: Package the application
         run: ./mvnw -B -ntp -C package -DskipTests
 
-      # Keycloak issues a token, the application accepts it, Prometheus scrapes it.
       - name: Start the stack and run the smoke test
         run: deploy/compose/smoke-test.sh
 

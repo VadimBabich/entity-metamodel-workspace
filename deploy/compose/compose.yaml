@@ -10,6 +10,20 @@ name: workspace
 
 x-keycloak-sync-secret: &keycloak-sync-secret ${KEYCLOAK_SYNC_SECRET:-workspace-sync-local-dev-secret}
 
+x-seed: &seed
+  image: postgres:18.7-alpine
+  profiles: ["seed"]
+  environment:
+    PGHOST: postgres
+    PGDATABASE: workspace
+    PGUSER: workspace_migrator
+    PGPASSWORD: workspace-migrator-local-development-password
+  volumes:
+    - ./seed:/seed:ro
+  depends_on:
+    postgres:
+      condition: service_healthy
+
 services:
   postgres:
     image: postgres:18.7-alpine
@@ -118,19 +132,12 @@ services:
       - prometheus
 
   seed-companies:
-    image: postgres:18.7-alpine
-    profiles: ["seed"]
+    <<: *seed
     command: ["psql", "-v", "ON_ERROR_STOP=1", "-f", "/seed/companies.sql"]
-    environment:
-      PGHOST: postgres
-      PGDATABASE: workspace
-      PGUSER: workspace_migrator
-      PGPASSWORD: workspace-migrator-local-development-password
-    volumes:
-      - ./seed:/seed:ro
-    depends_on:
-      postgres:
-        condition: service_healthy
+
+  seed-content:
+    <<: *seed
+    command: ["psql", "-v", "ON_ERROR_STOP=1", "-f", "/seed/content.sql"]
 
   app:
     profiles: ["app"]
@@ -146,6 +153,7 @@ services:
       KEYCLOAK_TOKEN_URI: http://keycloak:8080/realms/workspace/protocol/openid-connect/token
       KEYCLOAK_ADMIN_URI: http://keycloak:8080/admin/realms/workspace
       KEYCLOAK_SYNC_SECRET: *keycloak-sync-secret
+      WORKSPACE_MIRROR_GROUP_PASS_INTERVAL: 5s
       CURSOR_KEY: ${CURSOR_KEY:-workspace-cursor-key-local-development-only}
       LOG_FORMAT: ecs
       MANAGEMENT_PORT: "9091"

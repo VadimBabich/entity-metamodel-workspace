@@ -8,7 +8,8 @@
 
 set -euo pipefail
 
-readonly TOKEN_URL='http://localhost:8180/realms/workspace/protocol/openid-connect/token'
+source "$(dirname "$0")/keycloak-tokens.sh"
+
 readonly APP_URL='http://app:8080'
 readonly COMPOSE_NETWORK='workspace_default'
 readonly K6_IMAGE='grafana/k6:2.4.0@sha256:d41bb79cd8de5a7ad619b53570e3712633e8bff0937010a5c6c57a4747e7a276'
@@ -16,11 +17,6 @@ readonly K6_IMAGE='grafana/k6:2.4.0@sha256:d41bb79cd8de5a7ad619b53570e3712633e8b
 script_dir="$(cd "$(dirname "$0")" && pwd)"
 readonly script_dir
 readonly K6_SCRIPT="${script_dir}/perf/smoke.js"
-
-readonly ACCESS_TOKEN='
-import json, sys
-print(json.load(sys.stdin)["access_token"])
-'
 
 # argv: summary export file. Prints the request count and p(95) of the request duration in milliseconds.
 readonly RUN_SUMMARY_LINE='
@@ -44,15 +40,11 @@ fail() {
 }
 
 main() {
-  local token_response token k6_status run_summary
+  local token k6_status run_summary
 
   [ -f "${K6_SCRIPT}" ] || fail "no k6 script at ${K6_SCRIPT}"
 
-  token_response="$(curl -fsS -X POST "${TOKEN_URL}" \
-    -d grant_type=password -d client_id=workspace-dev-cli -d username=alice -d password=alice)" \
-    || fail "Keycloak issued no token; is the stack running?"
-  token="$(printf '%s' "${token_response}" | python3 -c "${ACCESS_TOKEN}" 2> /dev/null)" \
-    || fail "Keycloak's response held no access token"
+  token="$(user_token alice)" || fail "Keycloak issued no token for alice; is the stack running?"
 
   summary_dir="$(mktemp -d)"
   trap 'rm -rf "${summary_dir}"' EXIT
