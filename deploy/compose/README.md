@@ -15,8 +15,9 @@ docker compose -f deploy/compose/compose.yaml --profile observability --profile 
 docker compose -f deploy/compose/compose.yaml --profile observability --profile app down -v
 ```
 
-`smoke-test.sh` starts everything and checks that a Keycloak token reaches the API and that
-Prometheus scrapes the application. `perf-smoke.sh` then runs k6 against that stack, with the load
+`smoke-test.sh` starts everything, seeds the demonstration data and checks the stack end to end:
+each demonstration user lists exactly the folders their groups are granted, another company's folders
+answer 404, a folder is paged with its cursor, and Prometheus scrapes the application. `perf-smoke.sh` then runs k6 against that stack, with the load
 and the failure threshold set in `perf/smoke.js`. It prints the 95th-percentile response time but
 never fails on it. CI runs both on every push.
 
@@ -86,7 +87,8 @@ same file runs in the integration tests' container:
 
 Neither is a superuser. The image's `workspace` superuser runs the script and nothing else.
 `application.yaml` defaults to both roles with the passwords the script sets, so `java -jar` against
-this stack needs no database settings.
+this stack needs no database settings. It does need a cursor signing key of at least 32 bytes, which
+has no default: for example `CURSOR_KEY=workspace-cursor-key-local-development-only`.
 
 The script runs only on an empty data directory. A volume created before it existed has neither role
 and the application fails at start-up. Remove that volume once, together with the `app` container,
@@ -113,7 +115,25 @@ docker compose -f deploy/compose/compose.yaml --profile seed run --rm seed-compa
 ```
 
 `seed/companies.sql` waits up to two minutes for the application's migrations, runs as the migration
-role, and can be run again without effect. `smoke-test.sh` runs it.
+role, and can be run again without effect. Then seed the folders:
+
+```bash
+docker compose -f deploy/compose/compose.yaml --profile seed run --rm seed-content
+```
+
+`seed/content.sql` gives acme one top-level folder per group (`listers`, `viewers`, `contributors`,
+`editors`, `managers`), each granted to that group with the matching role, plus `unshared`, granted to
+nobody; globex gets `editors`, granted to its editors. Each folder holds a subfolder and two files, and
+its creator is a member of the group it is granted to. A grant names a group row, which the
+application creates on its group pass once the company exists, so the seed waits up to three minutes
+for the six groups. In compose the pass runs every 5 seconds
+(`WORKSPACE_MIRROR_GROUP_PASS_INTERVAL`); under `java -jar` it runs every minute by default. The seed
+runs as the migration role, creates no user row, and can be run again without effect. `smoke-test.sh`
+runs both seeds.
+
+Until the scheduled membership pass arrives, the mirror has two known gaps. A user who sends no
+request keeps the memberships the application last loaded; an active user's are reloaded after five
+minutes. A group deleted in Keycloak keeps its row and its grants.
 
 ## Ports
 

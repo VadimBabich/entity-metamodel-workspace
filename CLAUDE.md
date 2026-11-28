@@ -56,9 +56,11 @@ Optimise for scanning, not compactness.
 
 - **Contract first.** Change `workspace.yaml`, regenerate, then implement. Never edit generated code.
 - **Typed queries in repository fragments.** A repository declares no methods of its own;
-  reads are `<Entity>Queries` fragments whose `*QueriesImpl` builds `FluentSelect` and runs it through the
-  `MetamodelQueryExecutor` bean; partial writes are `<Entity>Updates` fragments whose `*UpdatesImpl` uses
-  `R2dbcEntityTemplate` with metamodel property names. No `@Query`. ArchUnit enforces these and:
+  reads are `<Entity>Queries` fragments whose `*QueriesImpl` builds `FluentSelect`, logs its redacted
+  `preview()` at `DEBUG` with the fluent API (`LOG.atDebug().addArgument(() -> …)`, so nothing is rendered
+  while the level is off), and runs it through the `MetamodelQueryExecutor` bean; partial writes are
+  `<Entity>Updates` fragments whose `*UpdatesImpl` uses `R2dbcEntityTemplate` with metamodel property names.
+  No `@Query`. ArchUnit enforces these and:
   `DatabaseClient` and the executor's construction only in `config`, which depends on no feature package;
   `SqlExpr.raw` only in `query`, which holds no controller; `@Transactional` and `TransactionalOperator`
   only in `*Service` classes, never returning a `Flux`; controllers reach data through a service, never a
