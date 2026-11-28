@@ -11,9 +11,8 @@
 
 set -euo pipefail
 
-readonly COMPOSE_FILE='deploy/compose/compose.yaml'
-readonly KEYCLOAK_URL='http://localhost:8180'
-readonly TOKEN_URL="${KEYCLOAK_URL}/realms/workspace/protocol/openid-connect/token"
+source "$(dirname "$0")/keycloak-tokens.sh"
+
 readonly ADMIN_URL="${KEYCLOAK_URL}/admin/realms/workspace"
 readonly AUDIENCE='workspace-api'
 readonly ADMIN_ROLE='company-admin'
@@ -30,14 +29,6 @@ readonly IDENTITIES=(
   'heidi acme - -'
   'bob globex - editors'
 )
-
-readonly DECODE_TOKEN='
-import base64, json, sys
-token = sys.stdin.read().strip()
-payload = token.split(".")[1]
-payload += "=" * (-len(payload) % 4)
-claims = json.loads(base64.urlsafe_b64decode(payload))
-'
 
 # argv: username, organization alias, administrator (admin|-), audience, admin role. Prints one line
 # per problem, nothing when the token is as expected.
@@ -63,15 +54,6 @@ if administrator != "admin" and holds_admin_role:
     print("%s is present on a non-administrator" % admin_role)
 '
 
-readonly TOKEN_SUBJECT="${DECODE_TOKEN}"'
-print(claims["sub"])
-'
-
-readonly ACCESS_TOKEN='
-import json, sys
-print(json.load(sys.stdin)["access_token"])
-'
-
 # Prints "alias id" per organization.
 readonly ORGANIZATIONS='
 import json, sys
@@ -85,11 +67,6 @@ import json, sys
 print(",".join(sorted(group["name"] for group in json.load(sys.stdin))))
 '
 
-readonly SYNC_SECRET='
-import json, sys
-print(json.load(sys.stdin)["services"]["keycloak"]["environment"]["KEYCLOAK_SYNC_SECRET"])
-'
-
 log() {
   printf '[identity] %s\n' "$1" >&2
 }
@@ -97,46 +74,6 @@ log() {
 fail() {
   printf '[identity] FAILED: %s\n' "$1" >&2
   exit 1
-}
-
-# $@: curl arguments. Prints the body, then the HTTP status on a last line of its own.
-http_call() {
-  curl -s -w '\n%{http_code}' "$@"
-}
-
-status_of() {
-  printf '%s' "${1##*$'\n'}"
-}
-
-body_of() {
-  printf '%s' "${1%$'\n'*}"
-}
-
-user_token() {
-  local username="$1"
-  local response
-
-  response="$(http_call -X POST "${TOKEN_URL}" -d grant_type=password -d client_id=workspace-dev-cli \
-    -d "username=${username}" -d "password=${username}")"
-  if [ "$(status_of "${response}")" != "200" ]; then
-    fail "no token for ${username} (HTTP $(status_of "${response}")); ${STALE_REALM_HINT}"
-  fi
-  body_of "${response}" | python3 -c "${ACCESS_TOKEN}"
-}
-
-sync_token() {
-  local compose_config
-  local secret
-  local response
-
-  compose_config="$(docker compose -f "${COMPOSE_FILE}" config --format json)"
-  secret="$(printf '%s' "${compose_config}" | python3 -c "${SYNC_SECRET}")"
-  response="$(http_call -X POST "${TOKEN_URL}" -d grant_type=client_credentials -d client_id=workspace-sync \
-    --data-urlencode "client_secret=${secret}")"
-  if [ "$(status_of "${response}")" != "200" ]; then
-    fail "no token for workspace-sync (HTTP $(status_of "${response}")); ${STALE_REALM_HINT}"
-  fi
-  body_of "${response}" | python3 -c "${ACCESS_TOKEN}"
 }
 
 # $1: bearer token; $2: path below the realm's Admin API. Prints the body; fails unless 200.
@@ -215,13 +152,17 @@ subject_of() {
 
 for identity in "${IDENTITIES[@]}"; do
   read -r username organization administrator _ <<< "${identity}"
-  token="$(user_token "${username}")"
+  if ! token="$(user_token "${username}")"; then
+    fail "${username} has no token; ${STALE_REALM_HINT}"
+  fi
   check_token_claims "${username}" "${organization}" "${administrator}" "${token}"
-  subjects+=("${username}=$(printf '%s' "${token}" | python3 -c "${TOKEN_SUBJECT}")")
+  subjects+=("${username}=$(printf '%s' "${token}" | token_subject)")
 done
 log "every demonstration user's token carries sub, preferred_username, email, one organization and the right role"
 
-sync="$(sync_token)"
+if ! sync="$(sync_token)"; then
+  fail "workspace-sync has no token; ${STALE_REALM_HINT}"
+fi
 
 # Grouped members first: an empty list is right for a member in no group, and is also what a service
 # account with too few roles gets back for everyone.
@@ -246,7 +187,9 @@ update="$(http_call -X PUT -H "Authorization: Bearer ${sync}" -H 'Content-Type: 
 [ "$(status_of "${update}")" = "403" ] || fail "workspace-sync changed a user (HTTP $(status_of "${update}")), expected 403"
 log "workspace-sync is refused a user change (403)"
 
-alice_token="$(user_token alice)"
+if ! alice_token="$(user_token alice)"; then
+  fail "alice has no token; ${STALE_REALM_HINT}"
+fi
 own="$(http_call -H "Authorization: Bearer ${alice_token}" \
   "${ADMIN_URL}/organizations/members/$(subject_of alice)/organizations")"
 [ "$(status_of "${own}")" = "401" ] || fail "a user's own token read the Admin API (HTTP $(status_of "${own}")), expected 401"
