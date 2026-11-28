@@ -11,13 +11,9 @@ PostgreSQL 18, an OpenAPI contract, Keycloak for identity.
 It is a demonstration, not a product, and it is not published to any package registry.
 
 **Status:** walking skeleton. Two endpoints list the top-level folders and a folder's children
-through typed queries, showing a user only their company's folders that their grants allow; the
-build, the tests, the local stack and CI are in place. The features follow.
-
-Group memberships are read from Keycloak on a user's first request and again on a request once they are older
-than 5 minutes (`workspace.mirror.membership-max-age`), so removing a user from a group takes effect within that
-time. If Keycloak cannot be reached, the stored memberships stay in force and the reload is retried a minute later.
-Known limitation: a user who sends no request is not refreshed until the periodic membership pass of a later step.
+through typed queries, showing a user only their company's folders that their grants allow, and page
+through them with a signed keyset cursor. The build, the tests, the local stack and CI are in place.
+The features follow; [what it does not do yet](#what-it-does-not-do-yet) lists the gaps.
 
 ## Run it
 
@@ -27,11 +23,20 @@ Requirements: JDK 25, Docker.
 ./mvnw -B verify                                             # build, unit and integration tests
 docker compose -f deploy/compose/compose.yaml up -d --wait   # PostgreSQL, Keycloak, S3
 ./mvnw -B clean package -DskipTests                          # exactly one application jar
+export CURSOR_KEY=workspace-cursor-key-local-development-only
 java -jar workspace-app/target/workspace-app-*.jar           # the API on :8080, management on :9091
 ```
 
-The whole stack, including the application container, Prometheus and Grafana, with an end-to-end
-check that a Keycloak token reaches the API:
+`CURSOR_KEY` signs the paging cursors and must be at least 32 bytes. It has no default: the
+application refuses to start without it, because a forgotten key would otherwise sign cursors with
+one anyone can read. Changing it invalidates every cursor issued before, which then answers
+`invalid-cursor`.
+
+A new database has no companies or folders, so every request is refused until the
+[demonstration data](deploy/compose/README.md#demonstration-data) is seeded.
+
+The whole stack, including the application container, Prometheus and Grafana, seeded and checked end
+to end: each demonstration user lists exactly the folders their groups are granted.
 
 ```bash
 ./mvnw -B clean package -DskipTests
@@ -71,16 +76,60 @@ class UserGroupQueriesImpl implements UserGroupQueries {
 
   @Override
   public Mono<UserGroup> withKeycloakId(UUID keycloakId) {
-    FluentSelect<UserGroup> group = FluentSelect.from(UserGroup__.ENTITY)
+    FluentSelect<UserGroup> groupWithKeycloakId = FluentSelect.from(UserGroup__.ENTITY)
         .where(UserGroup__.KEYCLOAK_ID.is(keycloakId));
 
-    return executor.one(group);
+    LOG.atDebug().addArgument(() -> renderer.render(groupWithKeycloakId).preview()).log("withKeycloakId: {}");
+
+    return executor.one(groupWithKeycloakId);
   }
 }
 ```
 
-`UserGroup__` is generated from the `UserGroup` entity at compile time; a renamed column is a compile
-error, not a runtime surprise. Derived query methods and `@Query` strings are not used.
+`UserGroup__` is generated from the `UserGroup` entity at compile time; a renamed column is a
+compile error, not a runtime surprise. Derived query methods and `@Query` strings are not used.
+
+What the walking skeleton shows of the library, each named by a test:
+
+| Capability | Where |
+|---|---|
+| `slice`: a page and whether another follows, with no count statement | both listings |
+| Keyset paging over `(kind, name, id)`, the row comparison a raw fragment | `ListingOrder`, `NodeQueriesImpl.pageAfter` |
+| `exists` | the check that a cursor's item is still listed |
+| `distinct` over a join | a folder reached by several of the caller's grants |
+| A schema-qualified table | `acl.access_grant` |
+| `RenderedStatement.preview()` | every fragment's `DEBUG` line |
+
+Each fragment logs its typed queries as the library renders them, with bound values withheld. The
+fragments are the only loggers in the `directory` and `folders` packages, so setting both to `DEBUG`
+shows every typed query:
+
+```bash
+export LOGGING_LEVEL_IO_GITHUB_VADIMBABICH_WORKSPACE_DIRECTORY=DEBUG
+export LOGGING_LEVEL_IO_GITHUB_VADIMBABICH_WORKSPACE_FOLDERS=DEBUG
+```
+
+It is for diagnosis: switch it on briefly, as every query then writes an entry of a kilobyte or more
+on the request thread. A preview spans several lines, one per bound value, so read it with
+`LOG_FORMAT=ecs`, as the compose stack sets it. A paged query is previewed before its window, with
+the page size beside it, and writes are not previewed; the driver's logger
+`io.r2dbc.postgresql.QUERY` shows every statement as sent.
+
+## What it does not do yet
+
+- **Reads only.** There is no upload, download, rename, move, trash or grant operation yet; the
+  demonstration folders and grants come from the compose seed.
+- **Memberships can be stale.** A user's groups are read from Keycloak on their first request and
+  again once they are older than 5 minutes (`workspace.mirror.membership-max-age`). If Keycloak
+  cannot be reached, the stored memberships stay in force and the reload is retried a minute later.
+  A user who sends no request is not refreshed, and a group deleted in Keycloak keeps its grants,
+  until the scheduled membership pass of a later step.
+- **Paging gives no snapshot.** An item renamed or moved between pages may be skipped or listed
+  twice, and a cursor whose item was trashed answers `invalid-cursor`.
+- **No browser UI.**
+
+[docs/architecture.md](docs/architecture.md) describes the data model, the access rule and the
+paging.
 
 ## Contributing and security
 
