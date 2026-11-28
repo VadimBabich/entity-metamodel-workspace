@@ -3,11 +3,14 @@ package io.github.vadimbabich.workspace.folders;
 import io.github.vadimbabich.entitymetamodel.runtime.Condition;
 import io.github.vadimbabich.entitymetamodel.runtime.r2dbc.FluentSelect;
 import io.github.vadimbabich.entitymetamodel.runtime.r2dbc.MetamodelQueryExecutor;
+import io.github.vadimbabich.entitymetamodel.runtime.r2dbc.QueryRenderer;
 import io.github.vadimbabich.workspace.domain.AccessGrant;
 import io.github.vadimbabich.workspace.domain.AccessGrant__;
 import io.github.vadimbabich.workspace.query.AccessConditions;
 import io.github.vadimbabich.workspace.query.CallerSubjects;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.repository.Repository;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
@@ -25,11 +28,15 @@ interface AccessGrantQueries {
 @Component
 class AccessGrantQueriesImpl implements AccessGrantQueries {
 
+  private static final Logger LOG = LoggerFactory.getLogger(AccessGrantQueriesImpl.class);
+
   private final MetamodelQueryExecutor executor;
+  private final QueryRenderer renderer;
   private final AccessConditions access;
 
-  AccessGrantQueriesImpl(MetamodelQueryExecutor executor, AccessConditions access) {
+  AccessGrantQueriesImpl(MetamodelQueryExecutor executor, QueryRenderer renderer, AccessConditions access) {
     this.executor = executor;
+    this.renderer = renderer;
     this.access = access;
   }
 
@@ -41,6 +48,8 @@ class AccessGrantQueriesImpl implements AccessGrantQueries {
     FluentSelect<AccessGrant> grantsOnFolderChain = FluentSelect.from(AccessGrant__.ENTITY)
         .where(reachesTheCaller.and(onTheFolderChain));
 
+    LOG.atDebug().addArgument(() -> renderer.render(grantsOnFolderChain).preview()).log("onFolderChainReaching: {}");
+
     return executor.list(grantsOnFolderChain);
   }
 
@@ -51,6 +60,8 @@ class AccessGrantQueriesImpl implements AccessGrantQueries {
 
     FluentSelect<AccessGrant> directGrants = FluentSelect.from(AccessGrant__.ENTITY)
         .where(reachesTheCaller.and(onTheNodes));
+
+    LOG.atDebug().addArgument(() -> renderer.render(directGrants).preview()).log("onNodesReaching: {}");
 
     return executor.list(directGrants);
   }

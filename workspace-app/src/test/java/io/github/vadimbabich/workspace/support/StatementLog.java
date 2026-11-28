@@ -14,6 +14,8 @@ import java.util.regex.Pattern;
 public final class StatementLog implements AutoCloseable {
 
   private static final String DRIVER_QUERY_LOGGER = "io.r2dbc.postgresql.QUERY";
+  private static final String DRIVER_MESSAGE_PREFIX = "Executing query: ";
+  private static final String SELECT = "SELECT ";
 
   private final LogCapture driverQueries;
 
@@ -30,18 +32,23 @@ public final class StatementLog implements AutoCloseable {
    * driver (a changed logger name or level) would otherwise pass for a request that ran no statement.
    */
   public List<String> statementsOn(String table) {
-    List<String> recordedStatements = statements();
+    return naming(table, statements());
+  }
 
-    Pattern tableName = Pattern.compile("\\b" + Pattern.quote(table.toLowerCase(Locale.ROOT)) + "\\b");
-    List<String> statementsOnTable = new ArrayList<>();
+  public List<String> selectsOn(String table) {
+    return naming(table, selects());
+  }
 
-    for (String statement : recordedStatements) {
-      if (tableName.matcher(statement.toLowerCase(Locale.ROOT)).find()) {
-        statementsOnTable.add(statement);
+  public List<String> selects() {
+    List<String> selects = new ArrayList<>();
+
+    for (String statement : statements()) {
+      if (statement.startsWith(SELECT)) {
+        selects.add(statement);
       }
     }
 
-    return List.copyOf(statementsOnTable);
+    return List.copyOf(selects);
   }
 
   public List<String> statements() {
@@ -94,13 +101,34 @@ public final class StatementLog implements AutoCloseable {
     driverQueries.close();
   }
 
+  private static List<String> naming(String table, List<String> statements) {
+    Pattern tableName = Pattern.compile("\\b" + Pattern.quote(table.toLowerCase(Locale.ROOT)) + "\\b");
+    List<String> statementsOnTable = new ArrayList<>();
+
+    for (String statement : statements) {
+      if (tableName.matcher(statement.toLowerCase(Locale.ROOT)).find()) {
+        statementsOnTable.add(statement);
+      }
+    }
+
+    return List.copyOf(statementsOnTable);
+  }
+
   private List<String> recordedStatements() {
     List<String> statements = new ArrayList<>();
 
     for (ILoggingEvent event : driverQueries.events()) {
-      statements.add(event.getFormattedMessage());
+      statements.add(statementOf(event.getFormattedMessage()));
     }
 
     return statements;
+  }
+
+  private static String statementOf(String driverMessage) {
+    if (!driverMessage.startsWith(DRIVER_MESSAGE_PREFIX)) {
+      throw new AssertionError("the driver logged a statement in an unknown form: " + driverMessage);
+    }
+
+    return driverMessage.substring(DRIVER_MESSAGE_PREFIX.length());
   }
 }

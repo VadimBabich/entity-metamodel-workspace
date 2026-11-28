@@ -146,6 +146,7 @@ services:
       KEYCLOAK_TOKEN_URI: http://keycloak:8080/realms/workspace/protocol/openid-connect/token
       KEYCLOAK_ADMIN_URI: http://keycloak:8080/admin/realms/workspace
       KEYCLOAK_SYNC_SECRET: *keycloak-sync-secret
+      CURSOR_KEY: ${CURSOR_KEY:-workspace-cursor-key-local-development-only}
       LOG_FORMAT: ecs
       MANAGEMENT_PORT: "9091"
     ports:

@@ -2,21 +2,28 @@ package io.github.vadimbabich.workspace.folders;
 
 import static io.github.vadimbabich.workspace.support.KeycloakDirectory.ACME_EDITORS;
 import static io.github.vadimbabich.workspace.support.KeycloakDirectory.ACME_ORGANIZATION;
+import static io.github.vadimbabich.workspace.support.ListingRequests.TOP_LEVEL;
+import static io.github.vadimbabich.workspace.support.ListingRequests.childrenPath;
+import static io.github.vadimbabich.workspace.support.ListingRequests.pageAt;
 import static io.github.vadimbabich.workspace.support.TestCallers.ACME;
+import static io.github.vadimbabich.workspace.support.TestCallers.ALICE;
+import static io.github.vadimbabich.workspace.support.TestCallers.alice;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.mockJwt;
 
 import io.github.vadimbabich.workspace.contract.model.Node;
-import io.github.vadimbabich.workspace.contract.model.NodePage;
 import io.github.vadimbabich.workspace.support.FixtureDatabase;
 import io.github.vadimbabich.workspace.support.KeycloakDirectory;
 import io.github.vadimbabich.workspace.support.ProblemTypes;
+import io.github.vadimbabich.workspace.support.QueryPreviewLog;
+import io.github.vadimbabich.workspace.support.QueryPreviewLog.QueryPreview;
 import io.github.vadimbabich.workspace.support.StatementLog;
 import io.github.vadimbabich.workspace.support.TestCallers;
 import io.github.vadimbabich.workspace.support.WorkspaceIntegrationTest;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -27,12 +34,10 @@ import org.springframework.security.test.web.reactive.server.SecurityMockServerC
 import org.springframework.test.web.reactive.server.WebTestClient;
 
 @WorkspaceIntegrationTest
+@DisplayName("Folder listings through typed queries")
 class FolderListingIT {
 
-  private static final String ALICE = "sub-alice";
   private static final String HEIDI = "sub-heidi";
-  private static final String TOP_LEVEL = "/api/v1/top-level-folders";
-  private static final String ITEM_NOT_FOUND = ProblemTypes.BASE + "item-not-found";
   private static final long PROJECTS = 1;
   private static final long NOTES = 3;
   private static final long HIDDEN = 4;
@@ -77,6 +82,7 @@ class FolderListingIT {
 
   @ParameterizedTest
   @ValueSource(longs = {1, 2, 3, 4, 5})
+  @DisplayName("schema-qualified table: a grant in the acl schema lists the folder with its role's capabilities")
   void aGroupGrantOfEveryRoleListsTheFolderWithTheRolesCapabilities(long role) {
     grantEditors(PROJECTS, role);
 
@@ -101,7 +107,7 @@ class FolderListingIT {
         .returnResult().getResponseBody();
 
     assertThat(topLevelBody).contains("\"name\":\"Projects\"").doesNotContain("parentId");
-    client.mutateWith(alice()).get().uri("/api/v1/folders/" + PROJECTS + "/children").exchange()
+    client.mutateWith(alice()).get().uri(childrenPath(PROJECTS)).exchange()
         .expectStatus().isOk()
         .expectBody()
         .jsonPath("$.items[0].parentId").isEqualTo(PROJECTS);
@@ -165,6 +171,18 @@ class FolderListingIT {
   }
 
   @Test
+  @DisplayName("distinct: a folder reached by two of the caller's grants lists each child once")
+  void aFolderReachedByTwoGrantsListsEachChildOnce() {
+    grantEditors(PROJECTS, LISTER);
+    fixtures.run("""
+        insert into acl.access_grant (company_id, node_id, subject_kind, subject_id, role) values (1, 1, 3, 1, 2)
+        """);
+
+    assertThat(childrenOf(PROJECTS, alice())).extracting(Node::getName).containsExactly("Plans", "notes.txt");
+    assertThat(topLevelFolders(alice())).extracting(Node::getName).containsExactly("Projects");
+  }
+
+  @Test
   void aCallerInNoGroupIsReachedByAGrantToTheirCompany() {
     fixtures.run("""
         insert into acl.access_grant (company_id, node_id, subject_kind, subject_id, role) values (1, 1, 3, 1, 1)
@@ -203,6 +221,7 @@ class FolderListingIT {
   }
 
   @Test
+  @DisplayName("slice: a folder page costs three statements on grants and the top level two, none of them a count")
   void aFolderListingRunsThreeAccessStatementsAndTheTopLevelTwo() {
     grantEditors(PROJECTS, LISTER);
     topLevelFolders(alice());
@@ -220,14 +239,35 @@ class FolderListingIT {
     }
   }
 
+  @Test
+  @DisplayName("preview log: a listing logs a redacted preview of each typed query, in the order it runs")
+  void aListingLogsARedactedPreviewOfEachTypedQueryInTheOrderItRuns() {
+    grantEditors(PROJECTS, LISTER);
+    topLevelFolders(alice());
+
+    try (StatementLog statementLog = StatementLog.open();
+        QueryPreviewLog previewLog = QueryPreviewLog.open()) {
+      childrenOf(PROJECTS, alice());
+
+      List<String> executedSelects = statementLog.selects();
+      List<QueryPreview> previews = previewLog.previews();
+
+      assertThat(previews).hasSameSizeAs(executedSelects);
+
+      for (int index = 0; index < previews.size(); index++) {
+        QueryPreview preview = previews.get(index);
+
+        assertThat(executedSelects.get(index)).startsWith(preview.statement());
+        assertThat(preview.bindingLines()).hasSize(preview.markerCount());
+        assertThat(preview.bindingLinesShowingAValue()).isEmpty();
+      }
+    }
+  }
+
   private void grantEditors(long nodeId, long role) {
     fixtures.run("""
         insert into acl.access_grant (company_id, node_id, subject_kind, subject_id, role) values (1, %d, 2, 1, %d)
         """.formatted(nodeId, role));
-  }
-
-  private static JwtMutator alice() {
-    return TestCallers.memberOf(ACME, ALICE);
   }
 
   private static JwtMutator heidi() {
@@ -235,27 +275,17 @@ class FolderListingIT {
   }
 
   private List<Node> childrenOf(long folderId, JwtMutator caller) {
-    return pageAt("/api/v1/folders/" + folderId + "/children", caller);
+    return pageAt(client, childrenPath(folderId), caller).getItems();
   }
 
   private List<Node> topLevelFolders(JwtMutator caller) {
-    return pageAt(TOP_LEVEL, caller);
-  }
-
-  private List<Node> pageAt(String path, JwtMutator caller) {
-    NodePage page = client.mutateWith(caller).get().uri(path).exchange()
-        .expectStatus().isOk()
-        .expectBody(NodePage.class)
-        .returnResult().getResponseBody();
-
-    assertThat(page).isNotNull();
-    return page.getItems();
+    return pageAt(client, TOP_LEVEL, caller).getItems();
   }
 
   private void expectNotFound(long folderId, JwtMutator caller) {
-    client.mutateWith(caller).get().uri("/api/v1/folders/" + folderId + "/children").exchange()
+    client.mutateWith(caller).get().uri(childrenPath(folderId)).exchange()
         .expectStatus().isEqualTo(HttpStatus.NOT_FOUND)
         .expectHeader().contentType(MediaType.APPLICATION_PROBLEM_JSON)
-        .expectBody().jsonPath("$.type").isEqualTo(ITEM_NOT_FOUND);
+        .expectBody().jsonPath("$.type").isEqualTo(ProblemTypes.ITEM_NOT_FOUND);
   }
 }

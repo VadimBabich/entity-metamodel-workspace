@@ -35,6 +35,8 @@ spring:
 workspace:
   mirror:
     admin-uri: ${KEYCLOAK_ADMIN_URI:http://localhost:8180/admin/realms/workspace}
+  listing:
+    cursor-key: ${CURSOR_KEY:}
 
 management:
   server:

@@ -12,6 +12,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
@@ -26,27 +27,31 @@ class FoldersController implements FoldersApi {
   }
 
   @Override
-  public Mono<NodePage> listTopLevelFolders(Integer limit, ServerWebExchange exchange) {
+  public Mono<NodePage> listTopLevelFolders(Integer limit, @Nullable String cursor, ServerWebExchange exchange) {
     return Caller.current()
-        .flatMap(caller -> listing.topLevelFolders(caller, limit))
+        .flatMap(caller -> listing.topLevelFolders(caller, limit, cursor))
         .map(FoldersController::pageOf);
   }
 
   @Override
-  public Mono<NodePage> listFolderChildren(Long folderId, Integer limit, ServerWebExchange exchange) {
+  public Mono<NodePage> listFolderChildren(
+      Long folderId, Integer limit, @Nullable String cursor, ServerWebExchange exchange) {
     return Caller.current()
-        .flatMap(caller -> listing.children(caller, folderId, limit))
+        .flatMap(caller -> listing.children(caller, folderId, limit, cursor))
         .map(FoldersController::pageOf);
   }
 
-  private static NodePage pageOf(List<VisibleNode> visibleNodes) {
+  private static NodePage pageOf(VisibleNodePage visiblePage) {
     List<Node> items = new ArrayList<>();
 
-    for (VisibleNode visibleNode : visibleNodes) {
+    for (VisibleNode visibleNode : visiblePage.nodes()) {
       items.add(toContract(visibleNode.node(), visibleNode.effectiveRole()));
     }
 
-    return new NodePage(items);
+    NodePage page = new NodePage(items);
+    visiblePage.nextCursor().ifPresent(page::nextCursor);
+
+    return page;
   }
 
   private static Node toContract(io.github.vadimbabich.workspace.domain.Node node, Role effectiveRole) {

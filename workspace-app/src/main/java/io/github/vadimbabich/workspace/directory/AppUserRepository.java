@@ -2,9 +2,12 @@ package io.github.vadimbabich.workspace.directory;
 
 import io.github.vadimbabich.entitymetamodel.runtime.r2dbc.FluentSelect;
 import io.github.vadimbabich.entitymetamodel.runtime.r2dbc.MetamodelQueryExecutor;
+import io.github.vadimbabich.entitymetamodel.runtime.r2dbc.QueryRenderer;
 import io.github.vadimbabich.workspace.domain.AppUser;
 import io.github.vadimbabich.workspace.domain.AppUser__;
 import java.time.Instant;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
 import org.springframework.data.relational.core.query.Criteria;
 import org.springframework.data.relational.core.query.Query;
@@ -24,16 +27,22 @@ interface AppUserQueries {
 @Component
 class AppUserQueriesImpl implements AppUserQueries {
 
-  private final MetamodelQueryExecutor executor;
+  private static final Logger LOG = LoggerFactory.getLogger(AppUserQueriesImpl.class);
 
-  AppUserQueriesImpl(MetamodelQueryExecutor executor) {
+  private final MetamodelQueryExecutor executor;
+  private final QueryRenderer renderer;
+
+  AppUserQueriesImpl(MetamodelQueryExecutor executor, QueryRenderer renderer) {
     this.executor = executor;
+    this.renderer = renderer;
   }
 
   @Override
   public Mono<AppUser> withSub(String sub) {
     FluentSelect<AppUser> userWithSub = FluentSelect.from(AppUser__.ENTITY)
         .where(AppUser__.SUB.is(sub));
+
+    LOG.atDebug().addArgument(() -> renderer.render(userWithSub).preview()).log("withSub: {}");
 
     return executor.one(userWithSub);
   }

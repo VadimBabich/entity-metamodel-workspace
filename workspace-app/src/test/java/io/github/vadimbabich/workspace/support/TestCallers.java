@@ -10,12 +10,17 @@ public final class TestCallers {
   public static final String ACME = "acme";
   public static final String GLOBEX = "globex";
   public static final String DEFAULT_SUBJECT = "sub-default-caller";
+  public static final String ALICE = "sub-alice";
 
   private TestCallers() {
   }
 
   public static JwtMutator acmeMember() {
     return memberOf(ACME, DEFAULT_SUBJECT);
+  }
+
+  public static JwtMutator alice() {
+    return memberOf(ACME, ALICE);
   }
 
   public static JwtMutator memberOf(String companyAlias, String subject) {

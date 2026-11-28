@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Document workspace
-  version: 0.4.0
+  version: 0.5.0
   x-api-id: 55c74d5c-1319-4efe-91fa-ecdd7d7159ba
   description: >
     The contract of the reference application. Server interfaces are generated from this document;
@@ -30,13 +30,15 @@ paths:
       operationId: listTopLevelFolders
       summary: List the top-level folders the caller may see, by name.
       description: >
-        Returns the first page of the caller's company's live top-level folders on which the caller holds
-        a grant, ordered by name. Each item names what the caller may do with it.
+        Returns a page of the caller's company's live top-level folders on which the caller holds a grant,
+        ordered by name. Each item names what the caller may do with it. The page carries nextCursor when
+        more folders follow; a folder renamed between pages may be skipped or listed twice.
       parameters:
         - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
       responses:
         '200':
-          description: The first page of top-level folders.
+          description: A page of top-level folders.
           content:
             application/json:
               schema:
@@ -56,9 +58,10 @@ paths:
       operationId: listFolderChildren
       summary: List a folder's children, folders first, then by name.
       description: >
-        Returns the first page of a folder's live children: folders before files, each group ordered
-        by name. Trashed items are not listed. The folder must be one the caller may list; each item names
-        what the caller may do with it.
+        Returns a page of a folder's live children: folders before files, each group ordered by name.
+        Trashed items are not listed. The folder must be one the caller may list; each item names what the
+        caller may do with it. The page carries nextCursor when more children follow; a child renamed or
+        moved between pages may be skipped or listed twice.
       parameters:
         - name: folderId
           in: path
@@ -67,9 +70,10 @@ paths:
           schema:
             $ref: '#/components/schemas/Identifier'
         - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
       responses:
         '200':
-          description: The first page of children.
+          description: A page of children.
           content:
             application/json:
               schema:
@@ -104,11 +108,23 @@ components:
         minimum: 1
         maximum: 100
         default: 50
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: >
+        The nextCursor of the previous page; absent for the first page. A cursor belongs to the caller,
+        the folder or the top level, and the order it was issued for. The limit may change between pages.
+      schema:
+        $ref: '#/components/schemas/Cursor'
 
   responses:
     InvalidRequest:
       description: >
         invalid-request: a parameter is missing, of the wrong type, or outside its documented range.
+        invalid-cursor: the cursor was not issued by this service, or the item it points after is gone or
+        no longer visible; request the first page again. cursor-of-another-query: the cursor was issued for
+        another caller, folder or order; request the first page again.
     Unauthenticated:
       description: >
         unauthenticated: the request carries no bearer token, or one that is expired, not signed by
@@ -134,6 +150,10 @@ components:
       format: int64
       minimum: 1
       maximum: 9007199254740991
+
+    Cursor:
+      type: string
+      maxLength: 76
 
     NodeKind:
       type: string
@@ -179,3 +199,7 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Node'
+        nextCursor:
+          $ref: '#/components/schemas/Cursor'
+          description: >
+            Present exactly when more items follow. Pass it as the cursor parameter to get the next page.
