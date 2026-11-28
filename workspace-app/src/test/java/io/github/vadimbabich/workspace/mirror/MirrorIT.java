@@ -6,6 +6,7 @@ import static io.github.vadimbabich.workspace.support.KeycloakDirectory.ACME_ORG
 import static io.github.vadimbabich.workspace.support.KeycloakDirectory.GLOBEX_EDITORS;
 import static io.github.vadimbabich.workspace.support.KeycloakDirectory.GLOBEX_ORGANIZATION;
 import static io.github.vadimbabich.workspace.support.TestCallers.ACME;
+import static io.github.vadimbabich.workspace.support.TestCallers.ALICE;
 import static io.github.vadimbabich.workspace.support.TestCallers.GLOBEX;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -31,7 +32,6 @@ import reactor.test.StepVerifier;
 @WorkspaceIntegrationTest
 class MirrorIT {
 
-  private static final String ALICE = "sub-alice";
   private static final String ERIN = "sub-erin";
   private static final String FRANK = "sub-frank";
 
@@ -152,8 +152,8 @@ class MirrorIT {
       callAs(GLOBEX);
 
       assertThat(statementLog.firstTransactionBegunBy("BEGIN READ WRITE"))
-          .anyMatch(statement -> statement.startsWith("Executing query: DELETE FROM \"group_membership\""))
-          .anyMatch(statement -> statement.startsWith("Executing query: UPDATE \"app_user\" SET \"username\""));
+          .anyMatch(statement -> statement.startsWith("DELETE FROM \"group_membership\""))
+          .anyMatch(statement -> statement.startsWith("UPDATE \"app_user\" SET \"username\""));
     }
 
     StepVerifier.create(aliceMemberships())
@@ -249,8 +249,7 @@ class MirrorIT {
     try (StatementLog statementLog = StatementLog.open()) {
       callAs(ACME);
 
-      assertThat(statementLog.statementsOn("user_group"))
-          .filteredOn(statement -> statement.startsWith("Executing query: SELECT"))
+      assertThat(statementLog.selectsOn("user_group"))
           .filteredOn(statement -> !statement.contains("group_membership"))
           .hasSize(1);
     }

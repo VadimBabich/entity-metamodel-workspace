@@ -7,6 +7,8 @@ import org.springframework.http.HttpStatus;
 public enum ProblemCondition {
 
   INVALID_REQUEST("invalid-request", HttpStatus.BAD_REQUEST),
+  INVALID_CURSOR("invalid-cursor", HttpStatus.BAD_REQUEST),
+  CURSOR_OF_ANOTHER_QUERY("cursor-of-another-query", HttpStatus.BAD_REQUEST),
   UNAUTHENTICATED("unauthenticated", HttpStatus.UNAUTHORIZED),
   ITEM_NOT_FOUND("item-not-found", HttpStatus.NOT_FOUND),
   IDENTITY_PROVIDER_UNAVAILABLE("identity-provider-unavailable", HttpStatus.SERVICE_UNAVAILABLE);

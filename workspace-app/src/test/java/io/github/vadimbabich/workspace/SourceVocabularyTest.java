@@ -8,6 +8,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
@@ -17,6 +18,8 @@ class SourceVocabularyTest {
   private static final Path CONTRACT = Path.of("../workspace-contract/src/main/openapi/workspace.yaml");
   private static final Path MIGRATIONS = Path.of("src/main/resources/db/migration");
   private static final Path LOCAL_STACK = Path.of("../deploy/compose");
+  private static final Pattern WRITE_TO_ACCESS_GRANT =
+      Pattern.compile("(insert\\s+into|copy)\\s+(\"?acl\"?\\s*\\.\\s*)?\"?access_grant\"?");
 
   @Test
   void noMainCodeStatementNamesACollation() throws IOException {
@@ -46,6 +49,21 @@ class SourceVocabularyTest {
     }
 
     assertThat(filesCreatingUsers).as("a user row is created by the user's first request only").isEmpty();
+  }
+
+  @Test
+  void noMigrationGrantsAccess() throws IOException {
+    List<Path> migrationsGrantingAccess = new ArrayList<>();
+
+    for (Path migration : filesUnder(MIGRATIONS, ".sql")) {
+      if (WRITE_TO_ACCESS_GRANT.matcher(lowerCaseTextOf(migration)).find()) {
+        migrationsGrantingAccess.add(migration);
+      }
+    }
+
+    assertThat(migrationsGrantingAccess)
+        .as("demonstration grants belong to the compose seed and to test fixtures, never to the schema's history")
+        .isEmpty();
   }
 
   @Test

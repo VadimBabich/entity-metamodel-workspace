@@ -21,7 +21,8 @@ import org.springframework.context.annotation.Import;
     "spring.security.oauth2.resourceserver.jwt.issuer-uri=" + TestTokens.ISSUER,
     "spring.security.oauth2.resourceserver.jwt.audiences=" + TestTokens.AUDIENCE,
     "workspace.mirror.group-pass-interval=1h",
-    "workspace.mirror.page-size=5"})
+    "workspace.mirror.page-size=5",
+    "workspace.listing.cursor-key=workspace-cursor-key-for-integration-tests-only"})
 @AutoConfigureWebTestClient
 @Import({TestDatabase.class, TestTokens.class, FailingEndpoints.class, KeycloakStub.class})
 public @interface WorkspaceIntegrationTest {

@@ -15,20 +15,26 @@ import org.springframework.r2dbc.core.DatabaseClient;
 class QueryConfiguration {
 
   /**
+   * A bean of its own so that a preview is rendered by the renderer the executor runs with. The executor adds a
+   * paged query's window after that, so a page's preview has no {@code LIMIT} or {@code OFFSET}.
+   */
+  @Bean
+  QueryRenderer queryRenderer(RelationalMappingContext mappingContext, ConnectionFactory connectionFactory) {
+    R2dbcDialect dialect = DialectResolver.getDialect(connectionFactory);
+
+    return new QueryRenderer(mappingContext, dialect);
+  }
+
+  /**
    * The library registers nothing on its own; the executor is an ordinary bean. Renderer and
    * converter must share one mapping context, or projected columns are read back under other names.
    */
   @Bean
   MetamodelQueryExecutor metamodelQueryExecutor(
       DatabaseClient databaseClient,
-      RelationalMappingContext mappingContext,
-      R2dbcConverter converter,
-      ConnectionFactory connectionFactory) {
+      QueryRenderer queryRenderer,
+      R2dbcConverter converter) {
 
-    R2dbcDialect dialect = DialectResolver.getDialect(connectionFactory);
-
-    QueryRenderer renderer = new QueryRenderer(mappingContext, dialect);
-
-    return new MetamodelQueryExecutor(databaseClient, renderer, converter);
+    return new MetamodelQueryExecutor(databaseClient, queryRenderer, converter);
   }
 }
